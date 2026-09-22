@@ -1,0 +1,191 @@
+================================================================================
+GitLab Pipeline: Update-Variables Stage - Quick Reference
+================================================================================
+
+WHAT WAS ADDED?
+================================================================================
+New pipeline stage "update-variables" that automatically syncs infrastructure 
+details from Terraform outputs to GitLab group variables.
+
+PIPELINE FLOW
+================================================================================
+validate → plan → apply → update-variables → destroy
+           (all stages set to: when: never)
+
+NEW STAGE: update-variables (manual trigger)
+
+ENVIRONMENT COVERAGE
+================================================================================
+✓ INT  → update-variables:int
+✓ QA   → update-variables:qa
+✓ STG  → update-variables:stg
+✓ PRD  → update-variables:prd
+
+19 VARIABLES UPDATED
+================================================================================
+AWS Account:
+  • AWS_ACCOUNT_ID (from ECR registry ID)
+
+Network & Security:
+  • VPC_ID
+  • SUBNET_IDS (comma-separated)
+  • SECURITY_GROUP_ID
+
+Database (PostgreSQL RDS):
+  • DB_HOST
+  • DB_PORT
+  • DB_NAME
+  • DB_USERNAME
+
+Cache (Valkey Serverless):
+  • VALKEY_ENDPOINT
+  • VALKEY_PORT
+
+Container Registry (ECR):
+  • BACKEND_ECR_REGISTRY
+  • BACKEND_ECR_REPOSITORY
+  • FRONTEND_ECR_REGISTRY
+  • FRONTEND_ECR_REPOSITORY
+
+ECS & Logging:
+  • ECS_CLUSTER_NAME
+  • CLOUDWATCH_LOG_GROUP
+  • ECS_TASK_EXECUTION_ROLE_ARN
+  • ECS_TASK_ROLE_ARN
+
+HOW TO USE
+================================================================================
+1. Run apply job (e.g., apply:int)
+   → Creates INT_outputs.json artifact
+
+2. Manually trigger update-variables:int job
+   → Extracts terraform outputs
+   → Updates 19 GitLab variables via API
+   → Uses CI_JOB_TOKEN for authentication
+
+3. Verify variables updated
+   → GitLab UI: Settings → CI/CD → Variables
+   → OR: glab variable list --project devops8004932/kubernetes/ecs-cluster
+
+IMPORTANT NOTES
+================================================================================
+✓ All existing jobs (validate, plan, apply, destroy) UNCHANGED
+✓ Fully backward compatible
+✓ Manual trigger only (must click "Run" in GitLab UI)
+✓ Dependencies: each update-variables:ENV depends on apply:ENV
+✓ Authentication: GitLab CI_JOB_TOKEN (automatic, no PAT needed)
+✓ Variables marked: protected=true, masked=false
+
+DATA FLOW
+================================================================================
+Terraform Apply
+  ↓
+Generate Outputs (int_outputs.json)
+  ↓
+Extract via jq
+  ├─ vpc_id.value
+  ├─ public_subnets.value
+  ├─ rds_host.value
+  ├─ valkey_host.value
+  └─ ... (16 more)
+  ↓
+Update GitLab Variables via API
+  ├─ POST /variables (if new)
+  └─ PUT /variables/{KEY} (if exists)
+  ↓
+Result: 19 variables synced to GitLab
+
+TROUBLESHOOTING
+================================================================================
+Issue: Variables not updating
+  → Check job logs: glab ci trace update-variables:int
+  → Verify apply:int succeeded and generated int_outputs.json
+  → Check GitLab project permissions
+
+Issue: jq: command not found
+  → Already in before_script, shouldn't happen
+  → Check Docker image (ubuntu:22.04)
+
+Issue: HTTP 401/403 errors
+  → CI_JOB_TOKEN issues (rare)
+  → Check project settings and CI/CD permissions
+
+Issue: Output values missing or null
+  → Terraform apply may have failed
+  → Check terraform outputs manually: terraform output -json
+
+MANUAL FALLBACK
+================================================================================
+If pipeline fails, use manual script:
+
+export GITLAB_TOKEN="glpat-xxxx"
+bash SETUP_GITLAB_VARIABLES.sh
+
+DOCUMENTATION
+================================================================================
+Full Documentation:
+  → GITLAB_PIPELINE_UPDATE_VARIABLES_STAGE.md (comprehensive)
+  → This file (quick reference)
+
+Variable Reference:
+  → GITLAB_VARIABLES_CONFIGURED.md (list of all variables)
+  → GITLAB_VARIABLES_REFERENCE.md (how to use them)
+
+FILES MODIFIED
+================================================================================
+.gitlab-ci.yml
+  • Lines 1-6: Updated stages (added "update-variables")
+  • Lines 326-832: Added 4 update-variables jobs (~500 lines)
+  • All other content preserved and functional
+
+FILES CREATED
+================================================================================
+GITLAB_PIPELINE_UPDATE_VARIABLES_STAGE.md
+  → Comprehensive documentation (400+ lines)
+  → Complete API details
+  → Troubleshooting guide
+  → Environment-specific behavior
+
+UPDATE_VARIABLES_QUICK_REFERENCE.txt
+  → This file (quick summary)
+
+GIT HISTORY
+================================================================================
+Commit: 09982f9
+Message: feat: add update-variables stage to sync infrastructure outputs
+
+Previous: 2adee94 (deploy.sh and pipeline disable)
+Previous: b42d116 (GitLab variables configuration)
+
+NEXT STEPS
+================================================================================
+1. Run "apply:int" pipeline job
+2. Verify deployment succeeded
+3. Click "update-variables:int" to run
+4. Check job logs for ✓ confirmation
+5. Verify in GitLab UI: Settings → CI/CD → Variables
+6. App deployment pipeline can now use these variables
+
+ARCHITECTURE BENEFIT
+================================================================================
+BEFORE (Manual):
+  Infrastructure Deploy → [Manual Entry] → GitLab Variables → App Pipeline
+
+AFTER (Automated):
+  Infrastructure Deploy → [Automatic Sync] → GitLab Variables → App Pipeline
+
+✓ No manual variable entry needed
+✓ Variables always in sync with actual infrastructure
+✓ Reduced manual errors
+✓ Single source of truth (Terraform outputs)
+
+SECURITY
+================================================================================
+✓ Authentication: GitLab CI_JOB_TOKEN (auto-injected)
+✓ No PAT required
+✓ Variables marked as protected
+✓ Non-sensitive values not masked (design choice)
+✓ Secrets still stored in AWS Secrets Manager
+  (DB_PASSWORD, JWT_SECRET not in variables)
+
+================================================================================

@@ -1,0 +1,200 @@
+╔════════════════════════════════════════════════════════════════════════════════╗
+║          ECS CLUSTER DEPLOYMENT - QUICK REFERENCE CARD                        ║
+╚════════════════════════════════════════════════════════════════════════════════╝
+
+📌 LOCATION & SETUP
+═══════════════════════════════════════════════════════════════════════════════
+
+Repository: /Users/sankarapple/export/DevOps/AWS-DevOps/Kubernetes/ecs-cluster/
+Deploy Script: ./deploy.sh
+Configuration: backend.tf, environments/{int|qa|stg|prd}.tfvars
+Documentation: DEPLOYMENT_GUIDE.md (this folder)
+
+Setup:
+  aws configure --profile $AWS_PROFILE
+  aws sts get-caller-identity --profile $AWS_PROFILE
+
+🚀 QUICK COMMANDS
+═══════════════════════════════════════════════════════════════════════════════
+
+Preview changes (no changes made):
+  ./deploy.sh int plan
+  ./deploy.sh qa plan
+  ./deploy.sh stg plan
+  ./deploy.sh prd plan
+
+Deploy infrastructure:
+  ./deploy.sh int apply           # Deploy INT environment
+  ./deploy.sh qa apply            # Deploy QA environment
+  ./deploy.sh stg apply           # Deploy STG environment
+  ./deploy.sh prd apply           # Deploy PRD environment
+
+Destroy infrastructure (IRREVERSIBLE):
+  ./deploy.sh int destroy         # Destroy INT environment
+  ./deploy.sh qa destroy          # Destroy QA environment
+  ./deploy.sh stg destroy         # Destroy STG environment
+  ./deploy.sh prd destroy         # Destroy PRD environment
+
+📊 ENVIRONMENTS
+═══════════════════════════════════════════════════════════════════════════════
+
+Environment | Purpose              | Valkey Size | Cost/month
+─────────────────────────────────────────────────────────────
+int         | Development/Testing  | 5GB, 500    | ~$70
+qa          | Quality Assurance    | 10GB, 1000  | ~$140
+stg         | Staging/Pre-Prod     | 15GB, 1500  | ~$170
+prd         | Production           | 25GB, 2000  | ~$240
+
+🔄 TYPICAL WORKFLOW
+═══════════════════════════════════════════════════════════════════════════════
+
+1. Plan first (no changes):
+   ./deploy.sh int plan
+   
+2. Review output carefully
+   
+3. Deploy when ready:
+   ./deploy.sh int apply
+   (Wait 10 seconds for confirmation)
+   
+4. Verify in AWS Console:
+   - EC2 instances
+   - RDS database
+   - Valkey Serverless cache
+   - Load Balancer
+
+💾 STATE FILE MANAGEMENT
+═══════════════════════════════════════════════════════════════════════════════
+
+Storage: S3 (bucket-s3-infra-devops)
+Locations:
+  INT: s3://bucket-s3-infra-devops/ecs-cluster/int/terraform.tfstate
+  QA:  s3://bucket-s3-infra-devops/ecs-cluster/qa/terraform.tfstate
+  STG: s3://bucket-s3-infra-devops/ecs-cluster/stg/terraform.tfstate
+  PRD: s3://bucket-s3-infra-devops/ecs-cluster/prd/terraform.tfstate
+
+Encryption: ✅ Enabled
+Locking: ❌ Disabled (S3 only, no DynamoDB)
+Backup: ✅ Automatic before each operation
+
+📤 INFRASTRUCTURE OUTPUTS
+═══════════════════════════════════════════════════════════════════════════════
+
+After deployment, these are available:
+
+Display in console:
+  VPC ID
+  RDS Endpoint
+  Valkey Endpoint
+  ALB DNS
+
+Save to JSON:
+  outputs_int.json
+  outputs_qa.json
+  outputs_stg.json
+  outputs_prd.json
+
+Access:
+  cat outputs_int.json
+  terraform output -json
+
+🔐 SECURITY NOTES
+═══════════════════════════════════════════════════════════════════════════════
+
+✅ State files encrypted at rest
+✅ Credentials stored in ~/.aws/credentials
+✅ Never commit credentials to Git
+✅ Infrastructure in private subnets (except ALB)
+✅ Security groups restrict access
+✅ Automatic backups before operations
+
+⚠️ IMPORTANT
+═══════════════════════════════════════════════════════════════════════════════
+
+❌ ALWAYS run 'plan' first before 'apply'
+❌ NEVER commit AWS credentials to Git
+❌ 'destroy' action is IRREVERSIBLE
+✓ State file backed up automatically
+✓ State file preserved after destruction (can restore)
+
+🛠️ TROUBLESHOOTING
+═══════════════════════════════════════════════════════════════════════════════
+
+Check AWS credentials:
+  aws sts get-caller-identity --profile $AWS_PROFILE
+
+Check S3 bucket:
+  aws s3 ls s3://bucket-s3-infra-devops --profile $AWS_PROFILE
+
+View Terraform state:
+  terraform state list
+  terraform show
+
+Download state file:
+  aws s3 cp s3://bucket-s3-infra-devops/ecs-cluster/int/terraform.tfstate . \
+    --profile $AWS_PROFILE
+
+Enable debug mode:
+  bash -x deploy.sh int plan
+
+📋 VALIDATION CHECKLIST
+═══════════════════════════════════════════════════════════════════════════════
+
+Before deploying:
+  ✓ AWS credentials configured
+  ✓ S3 bucket accessible
+  ✓ Environment file exists
+  ✓ Terraform plan reviewed
+  ✓ No sensitive data in code
+  ✓ Team notified
+  ✓ Rollback plan ready
+
+After deploying:
+  ✓ Resources created in AWS Console
+  ✓ Outputs verified
+  ✓ Health checks passing
+  ✓ Application deployed
+  ✓ Monitoring configured
+
+🎯 COMMON TASKS
+═══════════════════════════════════════════════════════════════════════════════
+
+Task: Deploy INT environment
+  ./deploy.sh int plan
+  ./deploy.sh int apply
+
+Task: Update INT environment
+  [Edit Terraform files]
+  ./deploy.sh int plan
+  ./deploy.sh int apply
+
+Task: Deploy to all environments
+  ./deploy.sh int apply
+  ./deploy.sh qa apply
+  ./deploy.sh stg apply
+  ./deploy.sh prd apply
+
+Task: Destroy INT environment
+  ./deploy.sh int destroy
+
+Task: Backup state file
+  aws s3 cp s3://bucket-s3-infra-devops/ecs-cluster/int/terraform.tfstate \
+    /tmp/backup-int-$(date +%Y%m%d-%H%M%S).tfstate --profile $AWS_PROFILE
+
+Task: Check infrastructure status
+  aws ec2 describe-instances --profile $AWS_PROFILE --region us-east-1
+  aws rds describe-db-instances --profile $AWS_PROFILE --region us-east-1
+  aws elasticache describe-serverless-caches --profile $AWS_PROFILE --region us-east-1
+
+📞 ADDITIONAL RESOURCES
+═══════════════════════════════════════════════════════════════════════════════
+
+Full Documentation: ./DEPLOYMENT_GUIDE.md
+Terraform: https://www.terraform.io/docs
+AWS Documentation: https://docs.aws.amazon.com/
+ECS: https://docs.aws.amazon.com/ecs/
+S3 Backend: https://www.terraform.io/language/settings/backends/s3
+
+═══════════════════════════════════════════════════════════════════════════════
+Status: ✅ Pipeline Disabled | Deploy Script Ready | S3 State Configured
+═══════════════════════════════════════════════════════════════════════════════

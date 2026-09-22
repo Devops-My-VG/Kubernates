@@ -1,0 +1,897 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GitLab CI/CD Implementation - ECS Cluster Infrastructure</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f5f5f5;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px 0;
+            margin-bottom: 40px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+        
+        .toc {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            border-left: 4px solid #667eea;
+        }
+        
+        .toc h2 {
+            color: #667eea;
+            margin-bottom: 15px;
+        }
+        
+        .toc ul {
+            list-style: none;
+        }
+        
+        .toc li {
+            padding: 5px 0;
+        }
+        
+        .toc a {
+            color: #667eea;
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+        
+        .toc a:hover {
+            color: #764ba2;
+            text-decoration: underline;
+        }
+        
+        section {
+            background: white;
+            padding: 30px;
+            margin-bottom: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        section h2 {
+            color: #667eea;
+            font-size: 2em;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #667eea;
+        }
+        
+        section h3 {
+            color: #764ba2;
+            font-size: 1.5em;
+            margin-top: 20px;
+            margin-bottom: 10px;
+        }
+        
+        section h4 {
+            color: #555;
+            font-size: 1.2em;
+            margin-top: 15px;
+            margin-bottom: 8px;
+        }
+        
+        p {
+            margin-bottom: 10px;
+        }
+        
+        code {
+            background-color: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            color: #c7254e;
+        }
+        
+        pre {
+            background-color: #f4f4f4;
+            padding: 15px;
+            border-radius: 5px;
+            overflow-x: auto;
+            margin: 15px 0;
+            border-left: 4px solid #667eea;
+            font-family: 'Courier New', monospace;
+            font-size: 0.95em;
+            line-height: 1.4;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+        }
+        
+        table th {
+            background-color: #667eea;
+            color: white;
+            padding: 12px;
+            text-align: left;
+            font-weight: bold;
+        }
+        
+        table td {
+            padding: 12px;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        table tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        
+        table tr:hover {
+            background-color: #f0f0f0;
+        }
+        
+        .flow-diagram {
+            background-color: #f9f9f9;
+            border-left: 4px solid #764ba2;
+            padding: 15px;
+            margin: 15px 0;
+            font-family: monospace;
+            white-space: pre;
+            overflow-x: auto;
+        }
+        
+        .error-box {
+            background-color: #fee;
+            border-left: 4px solid #c33;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 3px;
+        }
+        
+        .warning-box {
+            background-color: #ffeaa7;
+            border-left: 4px solid #f39c12;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 3px;
+        }
+        
+        .success-box {
+            background-color: #d4edda;
+            border-left: 4px solid #28a745;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 3px;
+        }
+        
+        .info-box {
+            background-color: #d1ecf1;
+            border-left: 4px solid #0c5460;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 3px;
+        }
+        
+        ul, ol {
+            margin-left: 20px;
+            margin-bottom: 15px;
+        }
+        
+        li {
+            margin-bottom: 8px;
+        }
+        
+        .metadata {
+            background-color: #f9f9f9;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            margin-top: 30px;
+            font-size: 0.9em;
+        }
+        
+        .metadata dt {
+            font-weight: bold;
+            color: #667eea;
+            float: left;
+            width: 200px;
+        }
+        
+        .metadata dd {
+            margin-left: 200px;
+            margin-bottom: 10px;
+        }
+        
+        footer {
+            background: #333;
+            color: white;
+            text-align: center;
+            padding: 20px;
+            margin-top: 50px;
+            border-radius: 8px;
+        }
+        
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin: 15px 0;
+        }
+        
+        @media (max-width: 768px) {
+            .grid-2 {
+                grid-template-columns: 1fr;
+            }
+            
+            header h1 {
+                font-size: 1.8em;
+            }
+            
+            .metadata dt {
+                width: auto;
+                float: none;
+            }
+            
+            .metadata dd {
+                margin-left: 0;
+                padding-left: 20px;
+            }
+        }
+        
+        .highlight {
+            background-color: #fffacd;
+            padding: 2px 4px;
+            border-radius: 2px;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="container">
+            <h1>🚀 GitLab CI/CD Pipeline Implementation</h1>
+            <p>ECS Cluster Infrastructure | Professional DevOps Automation</p>
+        </div>
+    </header>
+
+    <div class="container">
+        <!-- Table of Contents -->
+        <div class="toc">
+            <h2>📋 Table of Contents</h2>
+            <ul>
+                <li><a href="#overview">Overview</a></li>
+                <li><a href="#architecture">Architecture</a></li>
+                <li><a href="#pipeline-structure">Pipeline Structure</a></li>
+                <li><a href="#environments">Environments</a></li>
+                <li><a href="#backend">Backend Configuration</a></li>
+                <li><a href="#prerequisites">Prerequisites</a></li>
+                <li><a href="#setup">Setup Instructions</a></li>
+                <li><a href="#execution">Pipeline Execution</a></li>
+                <li><a href="#security">Security Considerations</a></li>
+                <li><a href="#troubleshooting">Troubleshooting</a></li>
+                <li><a href="#best-practices">Best Practices</a></li>
+            </ul>
+        </div>
+
+        <!-- Overview Section -->
+        <section id="overview">
+            <h2>📌 Overview</h2>
+            <p>This document provides comprehensive documentation for the professional GitLab CI/CD pipeline implementation for ECS cluster infrastructure. The pipeline automates Terraform deployments across multiple environments with strict controls and best practices.</p>
+            
+            <h3>Key Features</h3>
+            <ul>
+                <li><strong>Multi-Environment Support:</strong> INT, QA, STG, PRD</li>
+                <li><strong>Standard 4-Stage Pipeline:</strong> Validate → Plan → Apply → Destroy</li>
+                <li><strong>Production Safety:</strong> Manual approvals for sensitive operations</li>
+                <li><strong>Centralized State Management:</strong> S3 backend with Object Lock</li>
+                <li><strong>Dynamic Configuration:</strong> Environment-specific tfvars</li>
+                <li><strong>Security First:</strong> AWS credentials via CI/CD variables</li>
+            </ul>
+        </section>
+
+        <!-- Architecture Section -->
+        <section id="architecture">
+            <h2>🏗️ Architecture</h2>
+            
+            <h3>Design Philosophy</h3>
+            <ul>
+                <li><strong>Multi-Environment:</strong> Separate infrastructure for each tier</li>
+                <li><strong>Standard Pattern:</strong> Industry-standard 4-stage pipeline</li>
+                <li><strong>Separation of Concerns:</strong> Same stages, different configurations</li>
+                <li><strong>Production Safety:</strong> PRD at end with manual approval</li>
+                <li><strong>State Consistency:</strong> Centralized S3 backend with locking</li>
+            </ul>
+
+            <h3>High-Level Flow Diagram</h3>
+            <div class="flow-diagram">┌─────────────────────────────────────┐
+│ GitLab Push to main branch          │
+└────────────┬────────────────────────┘
+             │
+             ▼
+┌─────────────────────────────────────┐
+│ Stage 1: VALIDATE                   │
+│ - Terraform format check            │
+│ - Terraform validate                │
+│ - Automatic trigger                 │
+└────────────┬────────────────────────┘
+             │
+             ▼
+┌─────────────────────────────────────┐
+│ Stage 2: PLAN (Parallel)            │
+│ - plan:int   - plan:qa              │
+│ - plan:stg   - plan:prd             │
+│ - Automatic trigger                 │
+└────────────┬────────────────────────┘
+             │
+             ▼
+┌─────────────────────────────────────┐
+│ Stage 3: APPLY (Parallel)           │
+│ - apply:int  - apply:qa             │
+│ - apply:stg  - apply:prd            │
+│ - MANUAL trigger (approval)         │
+└────────────┬────────────────────────┘
+             │
+             ▼
+┌─────────────────────────────────────┐
+│ Stage 4: DESTROY (Parallel)         │
+│ - destroy:int - destroy:qa          │
+│ - destroy:stg - destroy:prd         │
+│ - MANUAL trigger (approval)         │
+└─────────────────────────────────────┘</div>
+        </section>
+
+        <!-- Pipeline Structure Section -->
+        <section id="pipeline-structure">
+            <h2>⚙️ Pipeline Structure</h2>
+
+            <h3>Stages Definition</h3>
+            <pre>stages:
+  - validate    # Syntax validation and format checks
+  - plan        # Terraform plan for all environments
+  - apply       # Terraform apply (manual trigger)
+  - destroy     # Terraform destroy (manual trigger)</pre>
+
+            <h3>Validate Stage</h3>
+            <p>Ensures Terraform configuration is properly formatted and syntactically valid.</p>
+            <pre>validate:
+  stage: validate
+  image: ubuntu:22.04
+  script:
+    - ./terraform fmt -check -recursive .
+    - ./terraform validate
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+      when: never
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH == "main"'</pre>
+
+            <table>
+                <tr>
+                    <th>Property</th>
+                    <th>Value</th>
+                </tr>
+                <tr>
+                    <td>Purpose</td>
+                    <td>Syntax validation and format checks</td>
+                </tr>
+                <tr>
+                    <td>Trigger</td>
+                    <td>Automatic on merge requests and main branch</td>
+                </tr>
+                <tr>
+                    <td>Duration</td>
+                    <td>~30-60 seconds</td>
+                </tr>
+            </table>
+
+            <h3>Plan Jobs (INT, QA, STG, PRD)</h3>
+            <p>Generate execution plans for each environment without making changes.</p>
+            <pre>plan:int:
+  stage: plan
+  image: ubuntu:22.04
+  environment:
+    name: INT
+    deployment_tier: development
+  script:
+    - ./terraform plan -var-file="environments/int.tfvars" -out=tfplan.int
+    - ./terraform show -no-color tfplan.int > plan_output_int.txt
+  artifacts:
+    paths:
+      - tfplan.int
+      - plan_output_int.txt
+      - .terraform.lock.hcl
+    expire_in: 7 days
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'</pre>
+
+            <table>
+                <tr>
+                    <th>Property</th>
+                    <th>Value</th>
+                </tr>
+                <tr>
+                    <td>Purpose</td>
+                    <td>Generate execution plans for each environment</td>
+                </tr>
+                <tr>
+                    <td>Trigger</td>
+                    <td>Automatic on main branch</td>
+                </tr>
+                <tr>
+                    <td>Artifacts</td>
+                    <td>Saved plan files for apply stage</td>
+                </tr>
+                <tr>
+                    <td>Duration</td>
+                    <td>~1-2 minutes per environment</td>
+                </tr>
+            </table>
+
+            <h3>Apply Jobs (INT, QA, STG, PRD)</h3>
+            <p>Execute Terraform changes to create/update infrastructure.</p>
+            <table>
+                <tr>
+                    <th>Property</th>
+                    <th>Value</th>
+                </tr>
+                <tr>
+                    <td>Purpose</td>
+                    <td>Execute Terraform changes</td>
+                </tr>
+                <tr>
+                    <td>Trigger</td>
+                    <td>Manual (requires user approval)</td>
+                </tr>
+                <tr>
+                    <td>Dependencies</td>
+                    <td>Requires successful plan job</td>
+                </tr>
+                <tr>
+                    <td>Duration</td>
+                    <td>~2-5 minutes per environment</td>
+                </tr>
+            </table>
+
+            <h3>Destroy Jobs (INT, QA, STG, PRD)</h3>
+            <p>Teardown infrastructure (typically for development/testing).</p>
+            <table>
+                <tr>
+                    <th>Property</th>
+                    <th>Value</th>
+                </tr>
+                <tr>
+                    <td>Purpose</td>
+                    <td>Teardown infrastructure</td>
+                </tr>
+                <tr>
+                    <td>Trigger</td>
+                    <td>Manual (requires explicit approval)</td>
+                </tr>
+                <tr>
+                    <td>Use Cases</td>
+                    <td>Development cleanup, cost savings</td>
+                </tr>
+                <tr>
+                    <td>Duration</td>
+                    <td>~1-3 minutes per environment</td>
+                </tr>
+            </table>
+        </section>
+
+        <!-- Environments Section -->
+        <section id="environments">
+            <h2>🌍 Environments</h2>
+
+            <h3>Environment Configuration</h3>
+            <table>
+                <tr>
+                    <th>Env</th>
+                    <th>Tier</th>
+                    <th>Purpose</th>
+                    <th>Instance Type</th>
+                    <th>Min Size</th>
+                    <th>Max Size</th>
+                </tr>
+                <tr>
+                    <td>INT</td>
+                    <td>Development</td>
+                    <td>Initial testing</td>
+                    <td>t3.medium</td>
+                    <td>2</td>
+                    <td>4</td>
+                </tr>
+                <tr>
+                    <td>QA</td>
+                    <td>Testing</td>
+                    <td>Quality assurance</td>
+                    <td>t3.medium</td>
+                    <td>2</td>
+                    <td>4</td>
+                </tr>
+                <tr>
+                    <td>STG</td>
+                    <td>Staging</td>
+                    <td>Pre-production</td>
+                    <td>t3.medium</td>
+                    <td>2</td>
+                    <td>4</td>
+                </tr>
+                <tr>
+                    <td>PRD</td>
+                    <td>Production</td>
+                    <td>Production workload</td>
+                    <td>t3.micro</td>
+                    <td>2</td>
+                    <td>4</td>
+                </tr>
+            </table>
+
+            <h3>INT Environment Configuration</h3>
+            <pre>region                    = "us-east-1"
+environment               = "dev"
+cluster_name              = "ecs-cluster-int"
+instance_type             = "t3.medium"
+min_size                  = 2
+max_size                  = 4
+desired_capacity          = 2
+ecs_min_capacity          = 2
+ecs_desired_capacity      = 2
+ecs_max_capacity          = 4
+log_retention_days        = 7
+enable_container_insights = false</pre>
+
+            <h3>PRD Environment Configuration</h3>
+            <pre>region                    = "us-east-1"
+environment               = "prod"
+cluster_name              = "ecs-cluster-prd"
+instance_type             = "t3.micro"
+log_retention_days        = 90</pre>
+        </section>
+
+        <!-- Backend Configuration Section -->
+        <section id="backend">
+            <h2>💾 Backend Configuration</h2>
+
+            <h3>S3 Backend Setup</h3>
+            <table>
+                <tr>
+                    <th>Configuration</th>
+                    <th>Value</th>
+                </tr>
+                <tr>
+                    <td>Bucket</td>
+                    <td>bucket-s3-infra-devops</td>
+                </tr>
+                <tr>
+                    <td>Region</td>
+                    <td>us-east-1</td>
+                </tr>
+                <tr>
+                    <td>Encryption</td>
+                    <td>AES-256</td>
+                </tr>
+                <tr>
+                    <td>Versioning</td>
+                    <td>Enabled</td>
+                </tr>
+                <tr>
+                    <td>Object Lock</td>
+                    <td>Enabled (use_lockfile=true)</td>
+                </tr>
+            </table>
+
+            <h3>State File Organization</h3>
+            <pre>s3://bucket-s3-infra-devops/
+├── ecs-cluster/
+│   ├── int/terraform.tfstate
+│   ├── qa/terraform.tfstate
+│   ├── stg/terraform.tfstate
+│   └── prd/terraform.tfstate
+└── ec2-infra-k8s/
+    ├── int/terraform.tfstate
+    ├── qa/terraform.tfstate
+    ├── stg/terraform.tfstate
+    └── prd/terraform.tfstate</pre>
+
+            <h3>Backend Initialization</h3>
+            <pre>before_script:
+  - cd ${TF_ROOT}
+  - apt-get update -qq && apt-get install -y -qq curl unzip ca-certificates
+  - curl -fsSLo terraform.zip "https://releases.hashicorp.com/terraform/1.16.2/terraform_1.16.2_linux_amd64.zip"
+  - unzip -q terraform.zip && rm -f terraform.zip && chmod +x terraform
+  - ./terraform version
+  - ': "${CI_ENVIRONMENT_NAME:?ERROR - CI_ENVIRONMENT_NAME is not set}"'
+  - export TF_STATE_ENV="$(printf '%s' "${CI_ENVIRONMENT_NAME}" | tr '[:upper:]' '[:lower:]')"
+  - ./terraform init -backend-config="bucket=bucket-s3-infra-devops" -backend-config="key=ecs-cluster/${TF_STATE_ENV}/terraform.tfstate" -backend-config="region=${AWS_DEFAULT_REGION}" -backend-config="encrypt=true" -backend-config="use_lockfile=true"</pre>
+        </section>
+
+        <!-- Prerequisites Section -->
+        <section id="prerequisites">
+            <h2>✅ Prerequisites</h2>
+
+            <h3>AWS Account Setup</h3>
+            <ol>
+                <li><strong>Create S3 Bucket:</strong>
+                    <pre>aws s3api create-bucket \
+  --bucket bucket-s3-infra-devops \
+  --region us-east-1</pre>
+                </li>
+                <li><strong>Enable Versioning:</strong>
+                    <pre>aws s3api put-bucket-versioning \
+  --bucket bucket-s3-infra-devops \
+  --versioning-configuration Status=Enabled</pre>
+                </li>
+                <li><strong>Enable Encryption:</strong>
+                    <pre>aws s3api put-bucket-encryption \
+  --bucket bucket-s3-infra-devops \
+  --server-side-encryption-configuration '{"Rules": [{"ApplyServerSideEncryptionByDefault": {"SSEAlgorithm": "AES256"}}]}'</pre>
+                </li>
+                <li><strong>Create IAM User:</strong> gitlab-cicd-deployer with S3 and EC2 permissions</li>
+                <li><strong>Generate Credentials:</strong> AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY</li>
+            </ol>
+
+            <h3>GitLab Setup</h3>
+            <ul>
+                <li>Install and register GitLab Runner</li>
+                <li>Add AWS credentials to CI/CD variables</li>
+                <li>Ensure runner has repository access</li>
+            </ul>
+
+            <h3>Local Requirements</h3>
+            <ul>
+                <li>Terraform >= 1.16.2</li>
+                <li>AWS CLI v2</li>
+                <li>Git</li>
+                <li>Bash shell</li>
+            </ul>
+        </section>
+
+        <!-- Setup Instructions Section -->
+        <section id="setup">
+            <h2>🔧 Setup Instructions</h2>
+
+            <h3>Step 1: AWS Credentials Configuration</h3>
+            <p>Add credentials to GitLab CI/CD variables (Group or Project level):</p>
+            <pre>AWS_ACCESS_KEY_ID=AKIA...
+AWS_SECRET_ACCESS_KEY=wJal...
+AWS_DEFAULT_REGION=us-east-1</pre>
+
+            <h3>Step 2: Clone Repository</h3>
+            <pre>git clone https://gitlab.com/devops8004932/kubernetes/ecs-cluster.git
+cd ecs-cluster</pre>
+
+            <h3>Step 3: Verify Configuration</h3>
+            <pre>terraform fmt -check -recursive .
+terraform validate</pre>
+
+            <h3>Step 4: Set Up GitLab Runner</h3>
+            <p>Refer to <code>GITLAB_RUNNER_SETUP.md</code> for detailed instructions.</p>
+
+            <h3>Step 5: Trigger Pipeline</h3>
+            <pre>git add .
+git commit -m "Initial infrastructure setup"
+git push origin main</pre>
+        </section>
+
+        <!-- Pipeline Execution Section -->
+        <section id="execution">
+            <h2>▶️ Pipeline Execution</h2>
+
+            <h3>Manual Pipeline Trigger</h3>
+            <ol>
+                <li>Go to: GitLab → Project → CI/CD → Pipelines</li>
+                <li>Click: "New Pipeline"</li>
+                <li>Select Branch: "main"</li>
+                <li>Click: "Create Pipeline"</li>
+            </ol>
+
+            <h3>Execution Flow</h3>
+            <div class="flow-diagram">Commit to main
+    ↓
+validate job starts (automatic)
+    ↓
+validate passes?
+    ├─ YES → plan jobs start (automatic, parallel)
+    │         ↓
+    │     plan jobs complete
+    │         ↓
+    │     apply jobs ready (manual, waiting for approval)
+    │
+    └─ NO → Pipeline failed, check logs</div>
+
+            <h3>Monitoring Pipeline Status</h3>
+            <ul>
+                <li>View pipeline in GitLab UI</li>
+                <li>Each job shows status, duration, logs, and artifacts</li>
+                <li>Click job name to view detailed logs</li>
+            </ul>
+        </section>
+
+        <!-- Security Considerations Section -->
+        <section id="security">
+            <h2>🔒 Security Considerations</h2>
+
+            <h3>Secrets Management</h3>
+            <div class="warning-box">
+                <strong>Important:</strong> AWS credentials are stored in GitLab CI/CD Variables (encrypted). Never commit credentials to repository.
+            </div>
+
+            <h3>Access Control</h3>
+            <ul>
+                <li><strong>GitLab Permissions:</strong> Protected main branch, developers can trigger manual jobs</li>
+                <li><strong>AWS IAM:</strong> Least privilege principle with service-specific policies</li>
+                <li><strong>Audit Trail:</strong> All actions logged in GitLab and AWS</li>
+            </ul>
+
+            <h3>State File Protection</h3>
+            <ul>
+                <li>S3 backend with AES-256 encryption</li>
+                <li>Object Lock enabled for state consistency</li>
+                <li>Versioning enabled for recovery</li>
+            </ul>
+        </section>
+
+        <!-- Troubleshooting Section -->
+        <section id="troubleshooting">
+            <h2>🐛 Troubleshooting</h2>
+
+            <h3>Issue 1: CI_ENVIRONMENT_NAME Not Set</h3>
+            <div class="error-box">
+                <strong>Error:</strong> ERROR - CI_ENVIRONMENT_NAME is not set
+            </div>
+            <p><strong>Cause:</strong> Job doesn't have <code>environment:</code> block</p>
+            <p><strong>Solution:</strong> Add environment block to job definition:</p>
+            <pre>environment:
+  name: INT
+  deployment_tier: development</pre>
+
+            <h3>Issue 2: S3 State File Error (Double Slash)</h3>
+            <div class="error-box">
+                <strong>Error:</strong> Value must not contain "//"
+            </div>
+            <p><strong>Cause:</strong> Environment variable empty, resulting in double slash</p>
+            <p><strong>Debug:</strong> Check environment variable output in job logs</p>
+
+            <h3>Issue 3: VPC Limit Exceeded</h3>
+            <div class="error-box">
+                <strong>Error:</strong> Error: creating EC2 VPC, ... VpcLimitExceeded
+            </div>
+            <p><strong>Solution:</strong></p>
+            <ol>
+                <li>Delete unused VPCs in AWS Console</li>
+                <li>Request AWS limit increase</li>
+                <li>Use Service Quotas console</li>
+            </ol>
+
+            <h3>Issue 4: Undeclared Variable Warning</h3>
+            <div class="warning-box">
+                <strong>Warning:</strong> Value for undeclared variable "aws_profile"
+            </div>
+            <p><strong>Solution:</strong> Remove from terraform.tfvars file</p>
+
+            <h3>Debugging Tips</h3>
+            <ul>
+                <li>View job logs in GitLab UI</li>
+                <li>Check S3 state files: <code>aws s3 ls s3://bucket-s3-infra-devops/</code></li>
+                <li>Enable TF debug: <code>export TF_LOG=DEBUG</code></li>
+            </ul>
+        </section>
+
+        <!-- Best Practices Section -->
+        <section id="best-practices">
+            <h2>⭐ Best Practices</h2>
+
+            <h3>Pipeline Management</h3>
+            <ul>
+                <li>Protect main branch with merge request reviews</li>
+                <li>Always progress through environments: INT → QA → STG → PRD</li>
+                <li>Keep documentation updated with variable changes</li>
+                <li>Maintain deployment runbooks</li>
+            </ul>
+
+            <h3>Terraform Best Practices</h3>
+            <ul>
+                <li>Format code: <code>terraform fmt -recursive .</code></li>
+                <li>Validate syntax: <code>terraform validate</code></li>
+                <li>Use descriptive variable names with validation rules</li>
+                <li>Never manually edit state files</li>
+                <li>Always use remote state</li>
+            </ul>
+
+            <h3>Deployment Strategy</h3>
+            <ul>
+                <li>Always run plan first and review output</li>
+                <li>Test in INT environment before other environments</li>
+                <li>Start with small changes to validate process</li>
+                <li>Keep previous state versions for rollback</li>
+            </ul>
+
+            <h3>Team Workflow</h3>
+            <ul>
+                <li>Require code review before merging</li>
+                <li>Announce deployments to team</li>
+                <li>Document all changes and decisions</li>
+                <li>Share lessons learned from issues</li>
+            </ul>
+        </section>
+
+        <!-- Version History -->
+        <section>
+            <h2>📜 Version History</h2>
+            <table>
+                <tr>
+                    <th>Version</th>
+                    <th>Date</th>
+                    <th>Changes</th>
+                </tr>
+                <tr>
+                    <td>1.0</td>
+                    <td>2024-09-12</td>
+                    <td>Initial implementation with 4-stage pipeline for all environments</td>
+                </tr>
+            </table>
+        </section>
+
+        <!-- Metadata -->
+        <section>
+            <h2>📊 Document Metadata</h2>
+            <dl class="metadata">
+                <dt>Repository:</dt>
+                <dd>ecs-cluster</dd>
+                <dt>Branch:</dt>
+                <dd>main</dd>
+                <dt>Last Updated:</dt>
+                <dd>2024-09-12</dd>
+                <dt>Terraform Version:</dt>
+                <dd>1.16.2</dd>
+                <dt>AWS Region:</dt>
+                <dd>us-east-1</dd>
+                <dt>State Backend:</dt>
+                <dd>S3 (bucket-s3-infra-devops)</dd>
+                <dt>Pipeline Stages:</dt>
+                <dd>4 (validate, plan, apply, destroy)</dd>
+                <dt>Environments:</dt>
+                <dd>4 (INT, QA, STG, PRD)</dd>
+            </dl>
+        </section>
+
+        <!-- Conclusion -->
+        <section>
+            <h2>🎯 Conclusion</h2>
+            <div class="success-box">
+                This GitLab CI/CD pipeline implementation provides a robust, scalable, and secure way to manage infrastructure as code across multiple environments. By following the guidelines in this documentation, your team can deploy infrastructure changes confidently while maintaining compliance and best practices.
+            </div>
+            <p><strong>For questions or contributions, please contact the DevOps team.</strong></p>
+        </section>
+    </div>
+
+    <footer>
+        <p>&copy; 2024 DevOps Team | GitLab CI/CD Pipeline Implementation | ECS Cluster Infrastructure</p>
+        <p>Last Updated: September 12, 2024</p>
+    </footer>
+</body>
+</html>

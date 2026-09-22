@@ -1,0 +1,13 @@
+region                    = "us-east-1"
+environment               = "dev"
+cluster_name              = "my-ecs-cluster"
+instance_type             = "t3.micro"
+ami_id                    = "ami-0fa96a91a85e7d4a2" # 2023 AMI (or leave empty to auto-detect)
+min_size                  = 2
+max_size                  = 4
+desired_capacity          = 2
+ecs_min_capacity          = 2
+ecs_desired_capacity      = 2
+ecs_max_capacity          = 4
+log_retention_days        = 7
+enable_container_insights = false

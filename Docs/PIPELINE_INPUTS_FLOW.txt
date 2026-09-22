@@ -1,0 +1,347 @@
+╔═════════════════════════════════════════════════════════════════════════════╗
+║          ECOMMERCE-APP DEPLOYMENT PIPELINE - INPUTS FLOW                   ║
+╚═════════════════════════════════════════════════════════════════════════════╝
+
+
+════════════════════════════════════════════════════════════════════════════════
+📋 WHAT THE PIPELINE NEEDS FROM YOU
+════════════════════════════════════════════════════════════════════════════════
+
+You provide → GitLab Variables → Pipeline uses → Deploy to AWS
+
+
+══════════════════════════════════════════════════════════════════════════════
+🔑 INPUT SOURCES (Where to get each value)
+══════════════════════════════════════════════════════════════════════════════
+
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ 1. AWS CREDENTIALS (Create new)                                         │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│  AWS_ACCESS_KEY_ID          ← Create IAM User                          │
+│  AWS_SECRET_ACCESS_KEY      ← Create IAM User                          │
+│  AWS_ACCOUNT_ID = 639140327478     ← Already provided                 │
+│  AWS_REGION = us-east-1            ← Already provided                 │
+│                                                                         │
+│  📍 Command:                                                            │
+│     aws iam create-user --user-name ecommerce-app-deployment           │
+│     aws iam create-access-key --user-name ecommerce-app-deployment     │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ 2. INFRASTRUCTURE DETAILS (Retrieve from AWS)                           │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│  ECS_CLUSTER_NAME           ← ecs-cluster-int (provided)              │
+│  ECS_TASK_EXECUTION_ROLE_ARN ← aws iam get-role --role-name ...       │
+│  ECS_TASK_ROLE_ARN          ← aws iam get-role --role-name ...        │
+│  VPC_ID                     ← vpc-0301d6ba38834d6aa (provided)         │
+│  SUBNET_IDS                 ← subnet-05db..., subnet-03e6... (given)  │
+│  SECURITY_GROUP_ID          ← sg-04506e2e244ebc25a (provided)         │
+│  BACKEND_ECR_REGISTRY       ← 639140327478.dkr.ecr.us-east-1.ami... │
+│  BACKEND_ECR_REPOSITORY     ← ecs-cluster-int/backend (given)         │
+│  FRONTEND_ECR_REGISTRY      ← 639140327478.dkr.ecr.us-east-1.ami... │
+│  FRONTEND_ECR_REPOSITORY    ← ecs-cluster-int/frontend (given)        │
+│                                                                         │
+│  📍 Run collection script or AWS CLI commands                          │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ 3. DATABASE & CACHE (From Secrets Manager - auto-generated)             │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│  DB_HOST                    ← Secrets Manager                          │
+│  DB_PORT = 5432             ← Standard PostgreSQL port                 │
+│  DB_NAME = ecommercedb      ← Database name (provided)                │
+│  DB_USERNAME = postgres     ← Master user (provided)                  │
+│  DB_PASSWORD                ← Secrets Manager (auto-generated)         │
+│                                                                         │
+│  REDIS_HOST                 ← Secrets Manager                          │
+│  REDIS_PORT = 6379          ← Standard Redis port                      │
+│  REDIS_PASSWORD             ← Secrets Manager (auto-generated)         │
+│                                                                         │
+│  📍 Command:                                                            │
+│     aws secretsmanager get-secret-value                                │
+│       --secret-id ecs-cluster-int/rds/master-password                  │
+│       --query SecretString --output text | jq .                        │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│ 4. APPLICATION CONFIG (Create/Generate)                                 │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                         │
+│  ENVIRONMENT                ← int, dev, staging, or prod               │
+│  LOG_LEVEL                  ← info, debug, warn, or error              │
+│  NODE_ENV                   ← production                               │
+│  JWT_SECRET                 ← Generate: openssl rand -base64 32        │
+│                                                                         │
+│  Optional - Email:                                                      │
+│  EMAIL_USERNAME             ← your-email@gmail.com                    │
+│  EMAIL_PASSWORD             ← Gmail app password (not regular pwd)     │
+│  SMTP_HOST                  ← smtp.gmail.com                           │
+│  SMTP_PORT                  ← 587                                      │
+│  EMAIL_FROM                 ← noreply@ecommerceapp.com                │
+│                                                                         │
+│  Optional - Google OAuth:                                               │
+│  GOOGLE_CLIENT_ID           ← Google Cloud Console                     │
+│  GOOGLE_CLIENT_SECRET       ← Google Cloud Console                     │
+│                                                                         │
+│  📍 Generate JWT_SECRET:                                               │
+│     openssl rand -base64 32                                            │
+│                                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+
+
+════════════════════════════════════════════════════════════════════════════════
+📊 INPUTS ORGANIZATION CHART
+════════════════════════════════════════════════════════════════════════════════
+
+                          GitLab CI/CD Variables
+                                  │
+                ┌─────────────────┼─────────────────┐
+                │                 │                 │
+           ┌────▼───────┐   ┌─────▼──────┐   ┌────▼──────────┐
+           │ Credentials │   │ Infra IDs  │   │ Secrets      │
+           │ (4 vars)    │   │ (10 vars)  │   │ (8 vars)     │
+           └────┬────────┘   └─────┬──────┘   └────┬─────────┘
+                │                 │              │
+        ┌───────┴──────────┐      │              │
+        │                  │      │              │
+   AWS Access Key    AWS Secret  ECS Cluster    Database Creds
+   AWS Account ID    AWS Region  VPC/Subnets    Redis Creds
+                              ECR Registries
+                              IAM Roles
+                              Security Groups
+                                  │
+                                  ↓
+                        GitLab Pipeline Triggered
+                                  │
+                    ┌─────────────┼─────────────┐
+                    │             │             │
+                ┌───▼────┐   ┌───▼────┐   ┌───▼────┐
+                │ Build  │   │  Push  │   │ Deploy │
+                │ Stage  │   │ Stage  │   │ Stage  │
+                └───┬────┘   └───┬────┘   └───┬────┘
+                    │           │            │
+            Compile Code    Push Images   Update ECS
+            Run Tests       to ECR        Scale Tasks
+                            Scan Images   Health Check
+                                          │
+                                          ↓
+                              Application Deployed ✅
+
+
+════════════════════════════════════════════════════════════════════════════════
+🔄 STEP-BY-STEP INPUT PROCESS
+════════════════════════════════════════════════════════════════════════════════
+
+STEP 1: Create AWS IAM User
+────────────────────────────
+  aws iam create-user --user-name ecommerce-app-deployment
+  ↓ Get AccessKeyId and SecretAccessKey
+  ↓ Save these securely
+  
+
+STEP 2: Run Collection Script (provided)
+───────────────────────────────────────
+  ./collect-inputs.sh
+  ↓ Displays all infrastructure values
+  ↓ Copy output
+
+
+STEP 3: Get Database/Cache Credentials
+────────────────────────────────────────
+  aws secretsmanager get-secret-value --secret-id ecs-cluster-int/rds/master-password
+  aws secretsmanager get-secret-value --secret-id ecs-cluster-int/redis/auth-token
+  ↓ Copy host, port, password values
+
+
+STEP 4: Generate Application Secrets
+──────────────────────────────────────
+  openssl rand -base64 32  (for JWT_SECRET)
+  ↓ Copy generated value
+
+
+STEP 5: Open GitLab Settings
+──────────────────────────────
+  GitLab → Project → Settings → CI/CD → Variables
+  ↓ Click "Add Variable"
+
+
+STEP 6: Add Each Variable
+──────────────────────────
+  For each of 20+ variables:
+    1. Key: [Variable name]
+    2. Value: [Value from steps 1-4]
+    3. Protected: ✅ (all)
+    4. Masked: ✅ (secrets only)
+    5. Click "Add variable"
+  
+
+STEP 7: Trigger Pipeline
+────────────────────────
+  Push code to GitLab
+  ↓ Pipeline automatically starts
+  ↓ Uses your variables
+
+
+STEP 8: Monitor Deployment
+──────────────────────────
+  GitLab → CI/CD → Pipelines
+  ↓ Watch pipeline stages
+  ↓ Check CloudWatch logs
+
+
+STEP 9: Verify Application
+──────────────────────────
+  Get ALB DNS: aws elbv2 describe-load-balancers ...
+  ↓ Open: http://[ALB_DNS]
+  ↓ Application running ✅
+
+
+════════════════════════════════════════════════════════════════════════════════
+⏱️ TIMELINE
+════════════════════════════════════════════════════════════════════════════════
+
+Task                          Duration      Status
+────────────────────────────────────────────────────────────────────────────
+Collect inputs                5-10 min      👤 Manual
+Create IAM user               2-3 min       👤 Manual
+Run collection script         1 min         👤 Manual
+Get database/cache creds      1 min         👤 Manual
+Generate JWT_SECRET           1 min         👤 Manual
+Open GitLab                   1 min         👤 Manual
+Add 20+ variables to GitLab   10 min        👤 Manual
+Push code to repository       1 min         👤 Manual
+────────────────────────────────────────────────────────────────────────────
+GitLab Build stage            2-3 min       🤖 Automatic
+GitLab Push stage             3-5 min       🤖 Automatic
+GitLab Deploy stage           2-3 min       🤖 Automatic
+GitLab Verify stage           1-2 min       🤖 Automatic
+────────────────────────────────────────────────────────────────────────────
+TOTAL SETUP TIME:             ~25 minutes   (20 min manual + 5 min auto)
+TOTAL DEPLOYMENT TIME:        ~10 minutes   (automatic after variables set)
+
+
+════════════════════════════════════════════════════════════════════════════════
+📊 INPUTS SUMMARY TABLE
+════════════════════════════════════════════════════════════════════════════════
+
+TYPE             COUNT  PROTECTION              SOURCE
+─────────────────────────────────────────────────────────────────────────────
+Credentials      4      [Protected] [Masked]    Create IAM user
+Infrastructure   10     [Protected]             AWS CLI / Given
+Database         5      [Protected] [Masked]    Secrets Manager
+Cache            3      [Protected] [Masked]    Secrets Manager
+Application      3+     [Protected] [Masked]    Generate / User input
+─────────────────────────────────────────────────────────────────────────────
+TOTAL:           25+    Varies                  Multiple sources
+
+
+════════════════════════════════════════════════════════════════════════════════
+✅ INPUTS CHECKLIST
+════════════════════════════════════════════════════════════════════════════════
+
+BEFORE STARTING:
+  ☐ You have AWS CLI installed and configured (aws --version)
+  ☐ You have jq installed (jq --version)
+  ☐ You have OpenSSL installed (openssl version)
+  ☐ You have access to AWS account ($AWS_PROFILE profile)
+  ☐ You have access to GitLab project
+
+COLLECTING INPUTS:
+  ☐ AWS IAM user created (ecommerce-app-deployment)
+  ☐ AWS_ACCESS_KEY_ID obtained
+  ☐ AWS_SECRET_ACCESS_KEY obtained
+  ☐ Collection script executed
+  ☐ Infrastructure details copied
+  ☐ Database credentials retrieved from Secrets Manager
+  ☐ Redis credentials retrieved from Secrets Manager
+  ☐ JWT_SECRET generated
+
+ADDING TO GITLAB:
+  ☐ GitLab project opened
+  ☐ Settings → CI/CD → Variables accessed
+  ☐ All 20+ variables added
+  ☐ Protected flag set on all variables
+  ☐ Masked flag set on sensitive variables (✅ 8 variables)
+  ☐ Variables saved
+
+DEPLOYMENT:
+  ☐ Code pushed to GitLab
+  ☐ Pipeline execution triggered
+  ☐ Build stage completed
+  ☐ Push stage completed
+  ☐ Deploy stage completed
+  ☐ Verify stage passed
+  ☐ Application responding on ALB endpoint
+
+VERIFICATION:
+  ☐ ALB DNS obtained
+  ☐ Application accessible via HTTP
+  ☐ Database connectivity verified
+  ☐ Redis connectivity verified
+  ☐ CloudWatch logs visible
+  ☐ Application running ✅
+
+
+════════════════════════════════════════════════════════════════════════════════
+💡 TROUBLESHOOTING QUICK REFERENCE
+════════════════════════════════════════════════════════════════════════════════
+
+Problem                      Solution
+────────────────────────────────────────────────────────────────────────────
+"Missing AWS credentials"    Check AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY
+"Cannot find ECR registry"   Verify ECR repository names are correct
+"Database connection failed" Check DB_HOST and DB_PASSWORD from Secrets Mgr
+"Redis connection timeout"   Check REDIS_HOST and REDIS_PASSWORD
+"Task fails to start"        Check CloudWatch logs and ECS task definition
+"ALB returning 502"          Verify health check path in task definition
+"No logs in CloudWatch"      Check IAM task execution role has CloudWatch perms
+
+
+════════════════════════════════════════════════════════════════════════════════
+🎯 YOU ARE HERE
+════════════════════════════════════════════════════════════════════════════════
+
+Infrastructure Setup        ✅ Complete
+Documentation              ✅ Complete
+Inputs Definition          ✅ Complete
+                           
+➜ NEXT: Collect & Add Inputs to GitLab (20-25 minutes)
+
+Then: Pipeline runs automatically (10 minutes)
+
+Result: Your Ecommerce-App deployed to ECS ✅
+
+
+════════════════════════════════════════════════════════════════════════════════
+📚 REFERENCE FILES
+════════════════════════════════════════════════════════════════════════════════
+
+Quick Start:                 QUICK_START_INPUTS.txt (this structure)
+Detailed Checklist:          DEPLOYMENT_CHECKLIST.md
+Complete Documentation:      APP_DEPLOYMENT_INPUTS.md
+Infrastructure Details:      INFRASTRUCTURE_GUIDE.md
+This Summary:                INPUTS_SUMMARY.md
+
+All files available in: /Users/sankarapple/export/DevOps/AWS-DevOps/Kubernetes/ecs-cluster/
+
+
+════════════════════════════════════════════════════════════════════════════════
+✅ READY FOR INPUT
+════════════════════════════════════════════════════════════════════════════════
+
+Infrastructure: DEPLOYED ✅
+Documentation:  COMPLETE ✅
+Pipeline:       READY 🚀
+
+Start collecting inputs now!
+

@@ -1,0 +1,23 @@
+# Terraform
+**/.terraform/
+
+# Terraform state
+*.tfstate
+*.tfstate.*
+
+# Terraform plan files
+*.tfplan
+tfplan
+
+# Private keys
+*.pem
+
+# OS files
+.DS_Store
+
+# Terraform crash logs
+crash.log
+crash.*.log
+
+# AWS Inventory files
+aws_inventory_*

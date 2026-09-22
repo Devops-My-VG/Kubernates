@@ -1,0 +1,369 @@
+{
+  "metadata": {
+    "date": "2026-09-13",
+    "account_id": "639140327478",
+    "region": "us-east-1",
+    "environment": "INT",
+    "status": "Infrastructure Deployed - Variables Ready",
+    "total_variables": 25,
+    "mandatory": 20,
+    "pending": 2,
+    "optional": 5
+  },
+  "aws_credentials": {
+    "note": "Already set in GitLab Group Variables",
+    "AWS_ACCESS_KEY_ID": {
+      "value": "[ALREADY SET]",
+      "protected": true,
+      "masked": true,
+      "source": "IAM User"
+    },
+    "AWS_SECRET_ACCESS_KEY": {
+      "value": "[ALREADY SET]",
+      "protected": true,
+      "masked": true,
+      "source": "IAM User"
+    }
+  },
+  "aws_account": {
+    "AWS_ACCOUNT_ID": {
+      "value": "639140327478",
+      "protected": true,
+      "masked": false,
+      "description": "AWS Account ID"
+    },
+    "AWS_REGION": {
+      "value": "us-east-1",
+      "protected": true,
+      "masked": false,
+      "description": "AWS Region"
+    }
+  },
+  "ecs_cluster": {
+    "ECS_CLUSTER_NAME": {
+      "value": "ecs-cluster-int",
+      "protected": true,
+      "masked": false,
+      "description": "ECS Cluster Name"
+    },
+    "ECS_TASK_EXECUTION_ROLE_ARN": {
+      "value": "arn:aws:iam::639140327478:role/ecs-cluster-int-ecs-task-execution-role",
+      "protected": true,
+      "masked": false,
+      "description": "Task Execution Role (ECR, CloudWatch, Secrets)"
+    },
+    "ECS_TASK_ROLE_ARN": {
+      "value": "arn:aws:iam::639140327478:role/ecs-cluster-int-ecs-task-role",
+      "protected": true,
+      "masked": false,
+      "description": "Task Role (S3, Secrets Manager, CloudWatch)"
+    }
+  },
+  "vpc_network": {
+    "VPC_ID": {
+      "value": "vpc-0301d6ba38834d6aa",
+      "protected": true,
+      "masked": false,
+      "description": "VPC ID"
+    },
+    "SUBNET_IDS": {
+      "value": "subnet-05db786298e4e5df9,subnet-03e658a1a4fac1ff2",
+      "protected": true,
+      "masked": false,
+      "format": "comma-separated",
+      "description": "Public Subnet IDs (Multi-AZ)",
+      "subnets": [
+        {
+          "id": "subnet-05db786298e4e5df9",
+          "az": "us-east-1a"
+        },
+        {
+          "id": "subnet-03e658a1a4fac1ff2",
+          "az": "us-east-1b"
+        }
+      ]
+    },
+    "SECURITY_GROUP_ID": {
+      "value": "sg-04506e2e244ebc25a",
+      "protected": true,
+      "masked": false,
+      "description": "ECS Tasks Security Group"
+    }
+  },
+  "ecr_registry": {
+    "BACKEND_ECR_REGISTRY": {
+      "value": "639140327478.dkr.ecr.us-east-1.amazonaws.com",
+      "protected": true,
+      "masked": false,
+      "description": "ECR Registry URL"
+    },
+    "BACKEND_ECR_REPOSITORY": {
+      "value": "ecs-cluster-int/backend",
+      "protected": true,
+      "masked": false,
+      "description": "Backend Repository Name",
+      "full_uri": "639140327478.dkr.ecr.us-east-1.amazonaws.com/ecs-cluster-int/backend"
+    },
+    "FRONTEND_ECR_REGISTRY": {
+      "value": "639140327478.dkr.ecr.us-east-1.amazonaws.com",
+      "protected": true,
+      "masked": false,
+      "description": "ECR Registry URL"
+    },
+    "FRONTEND_ECR_REPOSITORY": {
+      "value": "ecs-cluster-int/frontend",
+      "protected": true,
+      "masked": false,
+      "description": "Frontend Repository Name",
+      "full_uri": "639140327478.dkr.ecr.us-east-1.amazonaws.com/ecs-cluster-int/frontend"
+    }
+  },
+  "database_postgresql": {
+    "DB_HOST": {
+      "value": "ecs-cluster-int-postgres-db.c638ae4w03nm.us-east-1.rds.amazonaws.com",
+      "protected": true,
+      "masked": false,
+      "description": "RDS PostgreSQL Endpoint",
+      "details": {
+        "engine": "postgres",
+        "version": "15.7",
+        "instance_class": "db.t3.micro",
+        "multi_az": true,
+        "backup_retention": "7 days",
+        "storage": "20GB gp3"
+      }
+    },
+    "DB_PORT": {
+      "value": "5432",
+      "protected": true,
+      "masked": false,
+      "description": "PostgreSQL Port"
+    },
+    "DB_NAME": {
+      "value": "ecommercedb",
+      "protected": true,
+      "masked": false,
+      "description": "Database Name"
+    },
+    "DB_USERNAME": {
+      "value": "postgres",
+      "protected": true,
+      "masked": false,
+      "description": "Master Username"
+    },
+    "DB_PASSWORD": {
+      "value": "8pzPwmSuuA8XDlXVqfhh3yDBXgFLkV0g",
+      "protected": true,
+      "masked": true,
+      "description": "Master Password",
+      "source": "Secrets Manager: ecs-cluster-int/rds/master-password",
+      "auto_generated": true
+    }
+  },
+  "cache_redis": {
+    "REDIS_HOST": {
+      "value": "[PENDING - Redis creation in progress]",
+      "protected": true,
+      "masked": false,
+      "description": "ElastiCache Redis Primary Endpoint",
+      "status": "CREATING (~5-10 min remaining)",
+      "details": {
+        "engine": "redis",
+        "version": "7.0",
+        "node_type": "cache.t3.micro",
+        "nodes": 2,
+        "multi_az": true,
+        "port": 6379,
+        "persistence": "AOF"
+      },
+      "get_command": "aws elasticache describe-replication-groups --replication-group-id ecs-cluster-int-redis --region us-east-1 --profile $AWS_PROFILE --query 'ReplicationGroups[0].PrimaryEndpoint.Address' --output text"
+    },
+    "REDIS_PORT": {
+      "value": "6379",
+      "protected": true,
+      "masked": false,
+      "description": "Redis Port"
+    },
+    "REDIS_PASSWORD": {
+      "value": "[PENDING - Redis creation in progress]",
+      "protected": true,
+      "masked": true,
+      "description": "Redis AUTH Token",
+      "status": "CREATING (~5-10 min remaining)",
+      "source": "Secrets Manager: ecs-cluster-int/redis/auth-token",
+      "auto_generated": true,
+      "get_command": "aws secretsmanager get-secret-value --secret-id ecs-cluster-int/redis/auth-token --region us-east-1 --profile $AWS_PROFILE --query SecretString --output text | jq -r '.auth_token'"
+    }
+  },
+  "application_config": {
+    "ENVIRONMENT": {
+      "value": "int",
+      "protected": true,
+      "masked": false,
+      "description": "Deployment Environment",
+      "options": ["int", "dev", "staging", "prod"]
+    },
+    "LOG_LEVEL": {
+      "value": "info",
+      "protected": true,
+      "masked": false,
+      "description": "Application Logging Level",
+      "options": ["debug", "info", "warn", "error"]
+    },
+    "NODE_ENV": {
+      "value": "production",
+      "protected": true,
+      "masked": false,
+      "description": "Node.js Environment",
+      "note": "Must be production for ECS"
+    },
+    "JWT_SECRET": {
+      "value": "e8Z3fZnRz/nm0qPRBmNWbIYY5RA6KaZAYEuSSvpWrEg=",
+      "protected": true,
+      "masked": true,
+      "description": "JWT Signing Secret",
+      "min_length": 32,
+      "auto_generated": true,
+      "generate_command": "openssl rand -base64 32"
+    }
+  },
+  "optional_email": {
+    "EMAIL_USERNAME": {
+      "value": "[YOUR EMAIL ADDRESS]",
+      "protected": true,
+      "masked": true,
+      "description": "Email Account for Sending Notifications",
+      "example": "your-email@gmail.com",
+      "note": "Use Gmail app-specific password"
+    },
+    "EMAIL_PASSWORD": {
+      "value": "[YOUR APP PASSWORD]",
+      "protected": true,
+      "masked": true,
+      "description": "Gmail App-Specific Password",
+      "note": "NOT your regular Gmail password",
+      "instructions": "Gmail Settings > Security > App Passwords"
+    },
+    "SMTP_HOST": {
+      "value": "smtp.gmail.com",
+      "protected": true,
+      "masked": false,
+      "description": "SMTP Server (Gmail)"
+    },
+    "SMTP_PORT": {
+      "value": "587",
+      "protected": true,
+      "masked": false,
+      "description": "SMTP Port (TLS)"
+    },
+    "EMAIL_FROM": {
+      "value": "noreply@ecommerceapp.com",
+      "protected": true,
+      "masked": false,
+      "description": "From Address in Emails"
+    }
+  },
+  "optional_oauth": {
+    "GOOGLE_CLIENT_ID": {
+      "value": "[YOUR GOOGLE CLIENT ID]",
+      "protected": true,
+      "masked": false,
+      "description": "Google OAuth 2.0 Client ID",
+      "format": "XXXXXXXXXXXX.apps.googleusercontent.com",
+      "source": "Google Cloud Console"
+    },
+    "GOOGLE_CLIENT_SECRET": {
+      "value": "[YOUR GOOGLE CLIENT SECRET]",
+      "protected": true,
+      "masked": true,
+      "description": "Google OAuth 2.0 Client Secret",
+      "source": "Google Cloud Console",
+      "note": "Keep this secret"
+    },
+    "GOOGLE_CALLBACK_URL": {
+      "value": "http://[ALB_DNS]/auth/google/callback",
+      "protected": true,
+      "masked": false,
+      "description": "Google OAuth Redirect URL",
+      "example": "http://ecs-cluster-int-alb-xxx.us-east-1.elb.amazonaws.com/auth/google/callback",
+      "note": "Must match exactly in Google Cloud Console"
+    }
+  },
+  "summary": {
+    "mandatory_count": 20,
+    "pending_count": 2,
+    "optional_count": 5,
+    "mandatory_variables": [
+      "AWS_ACCOUNT_ID",
+      "AWS_REGION",
+      "ECS_CLUSTER_NAME",
+      "ECS_TASK_EXECUTION_ROLE_ARN",
+      "ECS_TASK_ROLE_ARN",
+      "VPC_ID",
+      "SUBNET_IDS",
+      "SECURITY_GROUP_ID",
+      "BACKEND_ECR_REGISTRY",
+      "BACKEND_ECR_REPOSITORY",
+      "FRONTEND_ECR_REGISTRY",
+      "FRONTEND_ECR_REPOSITORY",
+      "DB_HOST",
+      "DB_PORT",
+      "DB_NAME",
+      "DB_USERNAME",
+      "DB_PASSWORD",
+      "ENVIRONMENT",
+      "LOG_LEVEL",
+      "NODE_ENV",
+      "JWT_SECRET"
+    ],
+    "pending_variables": [
+      "REDIS_HOST",
+      "REDIS_PASSWORD"
+    ],
+    "optional_variables": [
+      "EMAIL_USERNAME",
+      "EMAIL_PASSWORD",
+      "SMTP_HOST",
+      "SMTP_PORT",
+      "EMAIL_FROM",
+      "GOOGLE_CLIENT_ID",
+      "GOOGLE_CLIENT_SECRET",
+      "GOOGLE_CALLBACK_URL"
+    ]
+  },
+  "setup_instructions": {
+    "step_1": {
+      "title": "Wait for Redis",
+      "duration": "5-10 minutes",
+      "command": "aws elasticache describe-replication-groups --replication-group-id ecs-cluster-int-redis --region us-east-1 --profile $AWS_PROFILE",
+      "check": "Status should change from 'creating' to 'available'"
+    },
+    "step_2": {
+      "title": "Get Redis Credentials",
+      "duration": "1 minute",
+      "once_redis_available": true,
+      "commands": {
+        "host": "aws elasticache describe-replication-groups --replication-group-id ecs-cluster-int-redis --region us-east-1 --profile $AWS_PROFILE --query 'ReplicationGroups[0].PrimaryEndpoint.Address' --output text",
+        "password": "aws secretsmanager get-secret-value --secret-id ecs-cluster-int/redis/auth-token --region us-east-1 --profile $AWS_PROFILE --query SecretString --output text | jq -r '.auth_token'"
+      }
+    },
+    "step_3": {
+      "title": "Set GitLab Variables",
+      "duration": "15 minutes",
+      "url": "https://gitlab.com/devops8004932/ecommerce-app-v1/-/settings/ci_cd",
+      "instructions": [
+        "Go to Settings → CI/CD → Variables",
+        "Click 'Add Variable' for each variable",
+        "Enter Key and Value",
+        "Check 'Protected' for all",
+        "Check 'Masked' for secrets (passwords, tokens)"
+      ]
+    },
+    "step_4": {
+      "title": "Push Code & Deploy",
+      "duration": "10 minutes",
+      "command": "git push origin main",
+      "note": "Pipeline will automatically build, test, and deploy"
+    }
+  }
+}

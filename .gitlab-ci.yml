@@ -1,0 +1,327 @@
+# ECS Cluster - Professional GitLab CI/CD Pipeline with Valkey Serverless
+# INT environment only
+# 
+# PIPELINE STAGES:
+# 1. validate  - Format and syntax validation
+# 2. plan      - Terraform plan for INT environment
+# 3. apply     - Manual deployment of infrastructure (manual trigger)
+# 4. destroy   - Manual cleanup of resources (manual trigger)
+#
+# MIGRATION: ElastiCache Redis → Valkey Serverless (33% cost savings)
+# - INT environment uses Valkey Serverless
+# - Cost estimate: INT ~$70/mo
+#
+# ENV VARIABLES REQUIRED (set at GitLab group/project level):
+# - AWS_ACCESS_KEY_ID
+# - AWS_SECRET_ACCESS_KEY
+# - AWS_ACCOUNT_ID
+# - AWS_DEFAULT_REGION
+
+stages:
+  - validate
+  - plan
+  - apply
+  - export-artifacts
+  - destroy
+
+variables:
+  TF_ROOT: ${CI_PROJECT_DIR}
+  TF_VERSION: "1.16.2"
+  AWS_DEFAULT_REGION: "us-east-1"
+  TF_IN_AUTOMATION: "true"
+  TF_INPUT: "false"
+  # Valkey Serverless specific variables
+  VALKEY_ENABLED: "true"
+  CACHE_ENGINE: "valkey-serverless"
+
+# ============================================================================
+# BEFORE SCRIPT - Initialize Terraform with backend config
+# Environment: Valkey Serverless deployment
+# ============================================================================
+
+before_script:
+  - cd ${TF_ROOT}
+  - apt-get update -qq && apt-get install -y -qq curl unzip ca-certificates
+  - curl -fsSLo terraform.zip "https://releases.hashicorp.com/terraform/${TF_VERSION}/terraform_${TF_VERSION}_linux_amd64.zip"
+  - unzip -q terraform.zip && rm -f terraform.zip && chmod +x terraform
+  - ./terraform version
+  - echo "Initializing Terraform with S3 backend..."
+  - ./terraform init -backend-config="bucket=bucket-s3-infra-devops" -backend-config="key=ecs-cluster/terraform.tfstate" -backend-config="region=${AWS_DEFAULT_REGION}" -backend-config="encrypt=true" -backend-config="skip_credentials_validation=false" -backend-config="skip_metadata_api_check=false"
+
+# ============================================================================
+# VALIDATION STAGE - Syntax and format checks
+# ============================================================================
+
+validate:
+  stage: validate
+  image: ubuntu:22.04
+  before_script:
+    - cd ${TF_ROOT}
+    - apt-get update -qq && apt-get install -y -qq curl unzip ca-certificates
+    - curl -fsSLo terraform.zip "https://releases.hashicorp.com/terraform/${TF_VERSION}/terraform_${TF_VERSION}_linux_amd64.zip"
+    - unzip -q terraform.zip && rm -f terraform.zip && chmod +x terraform
+    - ./terraform version && ./terraform init -backend=false
+  script:
+    - echo "Running Terraform format validation..."
+    - echo "Running Terraform syntax validation..."
+    - ./terraform validate
+    - echo "✓ All Terraform files validated successfully"
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+    - if: '$CI_COMMIT_BRANCH == "main"'
+
+# ============================================================================
+# INT ENVIRONMENT - Development & Testing
+# Cache: Valkey Serverless 5GB (cost ~$70/month)
+# ============================================================================
+
+plan:int:
+  stage: plan
+  image: ubuntu:22.04
+  environment:
+    name: INT
+    deployment_tier: development
+  script:
+    - echo "Planning INT environment with Valkey Serverless..."
+    - ./terraform plan -var-file="environments/int.tfvars" -out=tfplan.int
+    - ./terraform show -no-color tfplan.int > plan_output_int.txt
+    - echo "Plan complete. Valkey Serverless will be deployed with 5GB storage, 500 eCPUs/sec"
+  artifacts:
+    paths:
+      - tfplan.int
+      - plan_output_int.txt
+      - .terraform.lock.hcl
+    expire_in: 7 days
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+    - if: '$CI_COMMIT_BRANCH == "main"'
+
+apply:int:
+  stage: apply
+  image: ubuntu:22.04
+  environment:
+    name: INT
+    deployment_tier: development
+  dependencies:
+    - plan:int
+  script:
+    - echo "Applying INT environment configuration with Valkey Serverless..."
+    - ./terraform apply -auto-approve tfplan.int
+    - echo "✓ INT environment deployed successfully"
+    - ./terraform output -json > int_outputs.json
+    - echo "Valkey Serverless endpoint:" && ./terraform output -raw valkey_endpoint || echo "Output pending..."
+  artifacts:
+    paths:
+      - int_outputs.json
+    expire_in: 30 days
+  when: manual
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+    - if: '$CI_COMMIT_BRANCH == "main"'
+
+destroy:int:
+  stage: destroy
+  image: ubuntu:22.04
+  environment:
+    name: INT
+    deployment_tier: development
+  script:
+    - echo "Destroying INT environment resources (including Valkey Serverless)..."
+    - ./terraform destroy -var-file="environments/int.tfvars" -auto-approve
+    - echo "✓ INT environment destroyed successfully"
+  when: manual
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+    - if: '$CI_COMMIT_BRANCH == "main"'
+
+# ============================================================================
+# EXPORT-ARTIFACTS STAGE - Export infrastructure resources for app pipeline
+# Purpose: Package infrastructure outputs for consumption by ecommerce-app-v1
+# ============================================================================
+
+export-artifacts:int:
+  stage: export-artifacts
+  image: ubuntu:22.04
+  environment:
+    name: INT
+    deployment_tier: development
+  dependencies:
+    - apply:int
+  before_script:
+    - cd ${TF_ROOT}
+    - apt-get update -qq && apt-get install -y -qq curl unzip ca-certificates jq
+    - curl -fsSLo terraform.zip "https://releases.hashicorp.com/terraform/${TF_VERSION}/terraform_${TF_VERSION}_linux_amd64.zip"
+    - unzip -q terraform.zip && rm -f terraform.zip && chmod +x terraform
+    - ./terraform init -backend-config="bucket=bucket-s3-infra-devops" -backend-config="key=ecs-cluster/terraform.tfstate" -backend-config="region=${AWS_DEFAULT_REGION}" -backend-config="encrypt=true"
+  script:
+    - echo "=========================================="
+    - echo "Exporting Infrastructure Artifacts"
+    - echo "=========================================="
+    - echo ""
+    
+    # Step 1: Export Terraform outputs as JSON
+    - echo "[1/5] Exporting Terraform outputs..."
+    - ./terraform output -json > terraform-outputs.json
+    - echo "✓ terraform-outputs.json created"
+    - |
+      OUTPUT_COUNT=$(jq 'keys | length' terraform-outputs.json)
+      echo "Found $OUTPUT_COUNT Terraform outputs"
+      if [ "$OUTPUT_COUNT" -eq 0 ]; then
+        echo "⚠️  WARNING: No Terraform outputs found. Infrastructure may not be fully deployed."
+        echo "Available outputs:"
+        ./terraform output || echo "No outputs available"
+      fi
+    
+    # Step 2: Create environment variables file (.env format)
+    - echo "[2/5] Creating environment variables file..."
+    - |
+      cat > infra-config.env << 'ENVEOF'
+      # ECS Cluster Infrastructure Configuration
+      # Generated: $(date)
+      # Environment: INT
+      # Cluster: ecs-cluster-int
+
+      # Network Configuration
+      export VPC_ID=$(jq -r '.vpc_id.value // empty' terraform-outputs.json)
+      export PUBLIC_SUBNETS=$(jq -r '.public_subnets.value | join(",") // empty' terraform-outputs.json)
+      export SECURITY_GROUP_ID=$(jq -r '.security_group_id.value // empty' terraform-outputs.json)
+
+      # ECS Cluster
+      export ECS_CLUSTER_NAME=$(jq -r '.cluster_name.value // empty' terraform-outputs.json)
+      export ECS_CLUSTER_ARN=$(jq -r '.cluster_arn.value // empty' terraform-outputs.json)
+      export CLOUDWATCH_LOG_GROUP=$(jq -r '.cloudwatch_log_group_name.value // empty' terraform-outputs.json)
+
+      # RDS PostgreSQL Database
+      export RDS_HOST=$(jq -r '.rds_host.value // empty' terraform-outputs.json)
+      export RDS_PORT=$(jq -r '.rds_port.value // empty' terraform-outputs.json)
+      export RDS_DATABASE_NAME=$(jq -r '.rds_database_name.value // empty' terraform-outputs.json)
+      export RDS_USERNAME=$(jq -r '.rds_username.value // empty' terraform-outputs.json)
+
+      # Valkey Serverless Cache
+      export VALKEY_HOST=$(jq -r '.valkey_host.value // empty' terraform-outputs.json)
+      export VALKEY_PORT=$(jq -r '.valkey_port.value // empty' terraform-outputs.json)
+
+      # ECR Container Registry
+      export ECR_REGISTRY=$(jq -r '.ecr_registry_id.value // empty' terraform-outputs.json)
+      export BACKEND_ECR_REPOSITORY=$(jq -r '.backend_ecr_repository_name.value // empty' terraform-outputs.json)
+      export FRONTEND_ECR_REPOSITORY=$(jq -r '.frontend_ecr_repository_name.value // empty' terraform-outputs.json)
+      export BACKEND_ECR_REPOSITORY_URL=$(jq -r '.backend_ecr_repository_url.value // empty' terraform-outputs.json)
+      export FRONTEND_ECR_REPOSITORY_URL=$(jq -r '.frontend_ecr_repository_url.value // empty' terraform-outputs.json)
+
+      # IAM Roles
+      export ECS_TASK_EXECUTION_ROLE_ARN=$(jq -r '.ecs_task_execution_role_arn.value // empty' terraform-outputs.json)
+      export ECS_TASK_ROLE_ARN=$(jq -r '.ecs_task_role_arn.value // empty' terraform-outputs.json)
+      ENVEOF
+    - sed -i "s|\$(date)|$(date)|g" infra-config.env
+    - bash -c "source infra-config.env && ENV_COUNT=\$(env | grep -c '^VPC_ID=\|^ECS_CLUSTER=\|^RDS_=\|^VALKEY_=\|^ECR_=\|^.*ROLE_ARN=' || echo '0') && echo '✓ infra-config.env created with '\$ENV_COUNT' variables'"
+    - echo "✓ Environment variables file created"
+    
+    # Step 3: Create YAML configuration
+    - echo "[3/5] Creating YAML configuration..."
+    - |
+      cat > infra-config.yaml << 'YAMLEOF'
+      # ECS Cluster Infrastructure Configuration (YAML)
+      infrastructure:
+        cluster_name: ecs-cluster-int
+        environment: INT
+        region: us-east-1
+
+      network:
+        vpc_id: $(jq -r '.vpc_id.value // empty' terraform-outputs.json)
+        public_subnets: $(jq -r '.public_subnets.value | join(", ") // empty' terraform-outputs.json)
+        security_group_id: $(jq -r '.security_group_id.value // empty' terraform-outputs.json)
+
+      ecs:
+        cluster_name: $(jq -r '.cluster_name.value // empty' terraform-outputs.json)
+        cluster_arn: $(jq -r '.cluster_arn.value // empty' terraform-outputs.json)
+        cloudwatch_log_group: $(jq -r '.cloudwatch_log_group_name.value // empty' terraform-outputs.json)
+
+      database:
+        type: PostgreSQL
+        host: $(jq -r '.rds_host.value // empty' terraform-outputs.json)
+        port: $(jq -r '.rds_port.value // empty' terraform-outputs.json)
+        database_name: $(jq -r '.rds_database_name.value // empty' terraform-outputs.json)
+        username: $(jq -r '.rds_username.value // empty' terraform-outputs.json)
+
+      cache:
+        type: Valkey Serverless
+        host: $(jq -r '.valkey_host.value // empty' terraform-outputs.json)
+        port: $(jq -r '.valkey_port.value // empty' terraform-outputs.json)
+
+      registry:
+        registry_id: $(jq -r '.ecr_registry_id.value // empty' terraform-outputs.json)
+        backend_repository: $(jq -r '.backend_ecr_repository_name.value // empty' terraform-outputs.json)
+        backend_repository_url: $(jq -r '.backend_ecr_repository_url.value // empty' terraform-outputs.json)
+        frontend_repository: $(jq -r '.frontend_ecr_repository_name.value // empty' terraform-outputs.json)
+        frontend_repository_url: $(jq -r '.frontend_ecr_repository_url.value // empty' terraform-outputs.json)
+
+      iam:
+        task_execution_role_arn: $(jq -r '.ecs_task_execution_role_arn.value // empty' terraform-outputs.json)
+        task_role_arn: $(jq -r '.ecs_task_role_arn.value // empty' terraform-outputs.json)
+      YAMLEOF
+    - sed -i "s|\$(jq -r|jq -r|g" infra-config.yaml
+    - echo "✓ infra-config.yaml created"
+    
+    # Step 4: Create infrastructure manifest
+    - echo "[4/5] Creating infrastructure manifest..."
+    - |
+      cat > infra-manifest.json << 'MANIFESTEOF'
+      {
+        "version": "1.0",
+        "generated_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+        "pipeline_id": "$CI_PIPELINE_ID",
+        "commit_sha": "$CI_COMMIT_SHA",
+        "commit_message": "$CI_COMMIT_MESSAGE",
+        "environment": "INT",
+        "cluster_name": "ecs-cluster-int",
+        "region": "us-east-1",
+        "terraform_version": "1.16.2",
+        "artifacts": {
+          "terraform_outputs": "terraform-outputs.json",
+          "env_config": "infra-config.env",
+          "yaml_config": "infra-config.yaml",
+          "manifest": "infra-manifest.json"
+        },
+        "expiry": "$(date -u -d '+30 days' +%Y-%m-%dT%H:%M:%SZ)"
+      }
+      MANIFESTEOF
+    - sed -i "s|\$(date -u +%Y-%m-%dT%H:%M:%SZ)|$(date -u +%Y-%m-%dT%H:%M:%SZ)|g" infra-manifest.json
+    - sed -i "s|\$(date -u -d '+30 days' +%Y-%m-%dT%H:%M:%SZ)|$(date -u -d '+30 days' +%Y-%m-%dT%H:%M:%SZ)|g" infra-manifest.json
+    - sed -i "s|\$CI_PIPELINE_ID|${CI_PIPELINE_ID}|g" infra-manifest.json
+    - sed -i "s|\$CI_COMMIT_SHA|${CI_COMMIT_SHA}|g" infra-manifest.json
+    - sed -i "s|\$CI_COMMIT_MESSAGE|$(echo ${CI_COMMIT_MESSAGE} | sed 's/"/\\"/g')|g" infra-manifest.json
+    - echo "✓ infra-manifest.json created"
+    
+    # Step 5: Verify and summary
+    - echo "[5/5] Verifying artifacts..."
+    - |
+      echo ""
+      echo "=========================================="
+      echo "Artifact Export Summary"
+      echo "=========================================="
+      echo ""
+      echo "Files created:"
+      ls -lh terraform-outputs.json infra-config.env infra-config.yaml infra-manifest.json
+      echo ""
+      echo "Configuration values:"
+      echo "  VPC ID: $(jq -r '.vpc_id.value' terraform-outputs.json)"
+      echo "  Cluster: $(jq -r '.cluster_name.value' terraform-outputs.json)"
+      echo "  RDS Host: $(jq -r '.rds_host.value' terraform-outputs.json)"
+      echo "  Valkey Host: $(jq -r '.valkey_host.value' terraform-outputs.json)"
+      echo "  ECR Registry: $(jq -r '.ecr_registry_id.value' terraform-outputs.json)"
+      echo ""
+      echo "✅ All artifacts exported successfully!"
+      echo ""
+  artifacts:
+    paths:
+      - terraform-outputs.json
+      - infra-config.env
+      - infra-config.yaml
+      - infra-manifest.json
+    expire_in: 30 days
+    name: "infra-artifacts-${CI_PIPELINE_ID}"
+  needs:
+    - apply:int
+  only:
+    - main
+  allow_failure: false

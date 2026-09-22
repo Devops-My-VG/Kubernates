@@ -1,0 +1,384 @@
+================================================================================
+ECOMMERCE-APP DEPLOYMENT INPUTS - QUICK START GUIDE
+================================================================================
+
+PURPOSE: List all inputs needed for GitLab CI/CD pipeline to deploy your app
+STATUS: ✅ Infrastructure Deployed - Ready for Inputs
+
+================================================================================
+📋 MANDATORY INPUTS (20 variables)
+================================================================================
+
+GROUP 1: AWS CREDENTIALS
+────────────────────────────────────────────────────────────────────────────
+🔑 AWS_ACCESS_KEY_ID
+   Format: AKIA... (20 chars)
+   Source: Create IAM user → Generate Access Key
+   Protection: [Protected] [Masked]
+   
+🔑 AWS_SECRET_ACCESS_KEY
+   Format: Long random string (40 chars)
+   Source: IAM user → Generate with Access Key
+   Protection: [Protected] [Masked]
+   
+📍 AWS_ACCOUNT_ID = 639140327478
+   Protection: [Protected]
+   
+🌍 AWS_REGION = us-east-1
+   Protection: [Protected]
+
+
+GROUP 2: ECS CONFIGURATION
+────────────────────────────────────────────────────────────────────────────
+🏗️ ECS_CLUSTER_NAME = ecs-cluster-int
+   Protection: [Protected]
+   
+👤 ECS_TASK_EXECUTION_ROLE_ARN
+   Value: arn:aws:iam::639140327478:role/ecs-cluster-int-ecs-task-execution-role
+   Protection: [Protected]
+   
+👤 ECS_TASK_ROLE_ARN
+   Value: arn:aws:iam::639140327478:role/ecs-cluster-int-ecs-task-role
+   Protection: [Protected]
+
+
+GROUP 3: NETWORK CONFIGURATION
+────────────────────────────────────────────────────────────────────────────
+🌐 VPC_ID = vpc-0301d6ba38834d6aa
+   Protection: [Protected]
+   
+🏢 SUBNET_IDS = subnet-05db786298e4e5df9,subnet-03e658a1a4fac1ff2
+   Format: Comma-separated, no spaces
+   Protection: [Protected]
+   
+🔐 SECURITY_GROUP_ID = sg-04506e2e244ebc25a
+   Protection: [Protected]
+
+
+GROUP 4: ECR REGISTRY
+────────────────────────────────────────────────────────────────────────────
+📦 BACKEND_ECR_REGISTRY = 639140327478.dkr.ecr.us-east-1.amazonaws.com
+   Protection: [Protected]
+   
+📦 BACKEND_ECR_REPOSITORY = ecs-cluster-int/backend
+   Protection: [Protected]
+   
+📦 FRONTEND_ECR_REGISTRY = 639140327478.dkr.ecr.us-east-1.amazonaws.com
+   Protection: [Protected]
+   
+📦 FRONTEND_ECR_REPOSITORY = ecs-cluster-int/frontend
+   Protection: [Protected]
+
+
+GROUP 5: DATABASE (RDS PostgreSQL)
+────────────────────────────────────────────────────────────────────────────
+🗄️ DB_HOST = [From Secrets Manager]
+   Command: aws secretsmanager get-secret-value --secret-id ecs-cluster-int/rds/master-password --query SecretString --output text | jq -r '.host'
+   Protection: [Protected]
+   
+🗄️ DB_PORT = 5432
+   Protection: [Protected]
+   
+🗄️ DB_NAME = ecommercedb
+   Protection: [Protected]
+   
+🗄️ DB_USERNAME = postgres
+   Protection: [Protected]
+   
+🗄️ DB_PASSWORD = [From Secrets Manager]
+   Command: aws secretsmanager get-secret-value --secret-id ecs-cluster-int/rds/master-password --query SecretString --output text | jq -r '.password'
+   Protection: [Protected] [Masked]
+
+
+GROUP 6: REDIS CACHE
+────────────────────────────────────────────────────────────────────────────
+⚡ REDIS_HOST = [From Secrets Manager]
+   Command: aws secretsmanager get-secret-value --secret-id ecs-cluster-int/redis/auth-token --query SecretString --output text | jq -r '.host'
+   Protection: [Protected]
+   
+⚡ REDIS_PORT = 6379
+   Protection: [Protected]
+   
+⚡ REDIS_PASSWORD = [From Secrets Manager]
+   Command: aws secretsmanager get-secret-value --secret-id ecs-cluster-int/redis/auth-token --query SecretString --output text | jq -r '.auth_token'
+   Protection: [Protected] [Masked]
+
+
+GROUP 7: APPLICATION CONFIGURATION
+────────────────────────────────────────────────────────────────────────────
+🎯 ENVIRONMENT = int (or: dev, staging, prod)
+   Protection: [Protected]
+   
+📝 LOG_LEVEL = info (or: debug, warn, error)
+   Protection: [Protected]
+   
+🔧 NODE_ENV = production
+   Protection: [Protected]
+   
+🔑 JWT_SECRET = [Generate with: openssl rand -base64 32]
+   Min length: 32 characters
+   Protection: [Protected] [Masked]
+
+
+================================================================================
+⚙️ OPTIONAL INPUTS (Email Configuration)
+================================================================================
+
+✉️ EMAIL_USERNAME = your-email@gmail.com
+   Note: Gmail app-specific password, not regular password
+   Protection: [Protected] [Masked]
+   
+✉️ EMAIL_PASSWORD = [Gmail app password]
+   Get from: Gmail → Settings → Security → App Passwords
+   Protection: [Protected] [Masked]
+   
+📧 SMTP_HOST = smtp.gmail.com
+   Protection: [Protected]
+   
+📧 SMTP_PORT = 587
+   Protection: [Protected]
+   
+📧 EMAIL_FROM = noreply@ecommerceapp.com
+   Protection: [Protected]
+
+
+================================================================================
+⚙️ OPTIONAL INPUTS (Google OAuth)
+================================================================================
+
+🔐 GOOGLE_CLIENT_ID = [From Google Cloud Console]
+   Format: XXX...XXX.apps.googleusercontent.com
+   Get from: Google Cloud Console → OAuth 2.0 Credentials
+   Protection: [Protected]
+   
+🔐 GOOGLE_CLIENT_SECRET = [From Google Cloud Console]
+   Keep this secret!
+   Protection: [Protected] [Masked]
+   
+🔐 GOOGLE_CALLBACK_URL = [Your ALB DNS]/auth/google/callback
+   Format: http://ecs-cluster-int-alb-XXXXX.us-east-1.elb.amazonaws.com/auth/google/callback
+   Protection: [Protected]
+
+
+================================================================================
+📊 HOW TO GET THE VALUES
+================================================================================
+
+AUTOMATIC COLLECTION SCRIPT:
+──────────────────────────────
+cat > collect-gitlab-inputs.sh << 'EOF'
+#!/bin/bash
+PROFILE="$AWS_PROFILE"
+REGION="us-east-1"
+
+echo "=== Copy these values to GitLab ==="
+echo ""
+echo "AWS_ACCOUNT_ID=639140327478"
+echo "AWS_REGION=us-east-1"
+echo "ECS_CLUSTER_NAME=ecs-cluster-int"
+
+# Network
+echo "VPC_ID=$(aws ec2 describe-vpcs --filters "Name=cidr-block,Values=10.0.0.0/16" --region $REGION --profile $PROFILE --query 'Vpcs[0].VpcId' --output text)"
+echo "SUBNET_IDS=$(aws ec2 describe-subnets --filters "Name=vpc-id,Values=vpc-0301d6ba38834d6aa" --region $REGION --profile $PROFILE --query 'Subnets[*].SubnetId' --output text | tr '\t' ',')"
+echo "SECURITY_GROUP_ID=$(aws ec2 describe-security-groups --filters "Name=group-name,Values=ecs_sg" --region $REGION --profile $PROFILE --query 'SecurityGroups[0].GroupId' --output text)"
+
+# IAM Roles
+echo "ECS_TASK_EXECUTION_ROLE_ARN=$(aws iam get-role --role-name ecs-cluster-int-ecs-task-execution-role --profile $PROFILE --query 'Role.Arn' --output text)"
+echo "ECS_TASK_ROLE_ARN=$(aws iam get-role --role-name ecs-cluster-int-ecs-task-role --profile $PROFILE --query 'Role.Arn' --output text)"
+
+# ECR
+echo "BACKEND_ECR_REGISTRY=639140327478.dkr.ecr.us-east-1.amazonaws.com"
+echo "BACKEND_ECR_REPOSITORY=ecs-cluster-int/backend"
+echo "FRONTEND_ECR_REGISTRY=639140327478.dkr.ecr.us-east-1.amazonaws.com"
+echo "FRONTEND_ECR_REPOSITORY=ecs-cluster-int/frontend"
+
+echo ""
+echo "=== Database (from Secrets Manager) ==="
+echo "DB_HOST=$(aws secretsmanager get-secret-value --secret-id ecs-cluster-int/rds/master-password --region $REGION --profile $PROFILE --query SecretString --output text | jq -r '.host')"
+echo "DB_PORT=5432"
+echo "DB_NAME=ecommercedb"
+echo "DB_USERNAME=postgres"
+echo "DB_PASSWORD=$(aws secretsmanager get-secret-value --secret-id ecs-cluster-int/rds/master-password --region $REGION --profile $PROFILE --query SecretString --output text | jq -r '.password')"
+
+echo ""
+echo "=== Redis (from Secrets Manager) ==="
+echo "REDIS_HOST=$(aws secretsmanager get-secret-value --secret-id ecs-cluster-int/redis/auth-token --region $REGION --profile $PROFILE --query SecretString --output text | jq -r '.host')"
+echo "REDIS_PORT=6379"
+echo "REDIS_PASSWORD=$(aws secretsmanager get-secret-value --secret-id ecs-cluster-int/redis/auth-token --region $REGION --profile $PROFILE --query SecretString --output text | jq -r '.auth_token')"
+
+echo ""
+echo "=== Application (generate new values) ==="
+echo "ENVIRONMENT=int"
+echo "LOG_LEVEL=info"
+echo "NODE_ENV=production"
+echo "JWT_SECRET=$(openssl rand -base64 32)"
+EOF
+
+chmod +x collect-gitlab-inputs.sh
+./collect-gitlab-inputs.sh
+──────────────────────────────
+
+
+================================================================================
+✅ STEP-BY-STEP SETUP
+================================================================================
+
+STEP 1: Create AWS IAM User (One-time)
+──────────────────────────────────────
+1. Go to AWS Console → IAM → Users → Create User
+2. Username: ecommerce-app-deployment
+3. Attach policies:
+   - AmazonEC2ContainerServiceFullAccess
+   - AmazonEC2ContainerRegistryFullAccess
+4. Generate Access Key ID and Secret Access Key
+5. Save safely (used for AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY)
+
+
+STEP 2: Collect Infrastructure Details
+───────────────────────────────────────
+Run the automatic collection script above:
+./collect-gitlab-inputs.sh
+
+Copy all output values
+
+
+STEP 3: Generate Application Secrets
+──────────────────────────────────────
+JWT_SECRET:
+  Command: openssl rand -base64 32
+  Output: Use this for JWT_SECRET variable
+
+
+STEP 4: Open GitLab Project Settings
+───────────────────────────────────
+1. Go to GitLab → Your Project
+2. Settings → CI/CD → Variables
+3. You'll see existing variables (if any)
+
+
+STEP 5: Add Each Variable to GitLab
+──────────────────────────────────
+For each variable:
+  1. Click "Add Variable"
+  2. Key: [Variable name from checklist]
+  3. Value: [Value from collection script or manual input]
+  4. Protected: ✅ Check (for all)
+  5. Masked: ✅ Check (only for: AWS_SECRET_ACCESS_KEY, DB_PASSWORD, REDIS_PASSWORD, JWT_SECRET, EMAIL_PASSWORD, GOOGLE_CLIENT_SECRET)
+  6. Click "Add variable"
+
+Repeat for all 20+ variables
+
+
+STEP 6: Verify Variables
+──────────────────────────
+1. Go to CI/CD → Pipelines
+2. Push code to trigger pipeline
+3. Monitor pipeline execution in GitLab UI
+4. Check CloudWatch logs for deployment status
+
+
+STEP 7: Verify Application
+──────────────────────────
+1. Get ALB DNS: aws elbv2 describe-load-balancers --region us-east-1 --profile $AWS_PROFILE --query 'LoadBalancers[0].DNSName' --output text
+2. Open: http://[ALB_DNS]
+3. Application should be running ✅
+
+
+================================================================================
+📊 QUICK REFERENCE TABLE
+================================================================================
+
+VARIABLE                           | TYPE       | PROTECTION
+─────────────────────────────────────────────────────────────────────────────
+AWS_ACCESS_KEY_ID                  | Secret     | [Protected] [Masked]
+AWS_SECRET_ACCESS_KEY              | Secret     | [Protected] [Masked]
+AWS_ACCOUNT_ID                     | ID         | [Protected]
+AWS_REGION                         | Config     | [Protected]
+ECS_CLUSTER_NAME                   | Config     | [Protected]
+ECS_TASK_EXECUTION_ROLE_ARN        | ARN        | [Protected]
+ECS_TASK_ROLE_ARN                  | ARN        | [Protected]
+VPC_ID                             | ID         | [Protected]
+SUBNET_IDS                         | IDs        | [Protected]
+SECURITY_GROUP_ID                  | ID         | [Protected]
+BACKEND_ECR_REGISTRY               | Registry   | [Protected]
+BACKEND_ECR_REPOSITORY             | Repo       | [Protected]
+FRONTEND_ECR_REGISTRY              | Registry   | [Protected]
+FRONTEND_ECR_REPOSITORY            | Repo       | [Protected]
+DB_HOST                            | Endpoint   | [Protected]
+DB_PORT                            | Config     | [Protected]
+DB_NAME                            | Config     | [Protected]
+DB_USERNAME                        | Config     | [Protected]
+DB_PASSWORD                        | Secret     | [Protected] [Masked]
+REDIS_HOST                         | Endpoint   | [Protected]
+REDIS_PORT                         | Config     | [Protected]
+REDIS_PASSWORD                     | Secret     | [Protected] [Masked]
+ENVIRONMENT                        | Config     | [Protected]
+LOG_LEVEL                          | Config     | [Protected]
+NODE_ENV                           | Config     | [Protected]
+JWT_SECRET                         | Secret     | [Protected] [Masked]
+
+
+================================================================================
+🎯 WHAT HAPPENS AFTER YOU SET VARIABLES
+================================================================================
+
+1. Push your code to GitLab
+2. GitLab receives variables → Unlocks secrets
+3. Build stage: Compiles code, runs tests
+4. Push stage: Builds Docker images, pushes to ECR
+5. Deploy stage: Updates ECS with new images
+6. Verify stage: Runs health checks
+7. Application automatically scales to 2 tasks
+8. Load balancer distributes traffic
+
+Timeline: ~5-10 minutes from push to live app
+
+
+================================================================================
+✅ VERIFICATION COMMANDS (After Deployment)
+================================================================================
+
+Check ECS service:
+  aws ecs describe-services --cluster ecs-cluster-int --services ecs-cluster-int-httpd-service --region us-east-1 --profile $AWS_PROFILE
+
+Check running tasks:
+  aws ecs list-tasks --cluster ecs-cluster-int --region us-east-1 --profile $AWS_PROFILE
+
+View logs:
+  aws logs tail /ecs/ecs-cluster-int --follow --profile $AWS_PROFILE
+
+Get ALB DNS:
+  aws elbv2 describe-load-balancers --region us-east-1 --profile $AWS_PROFILE --query 'LoadBalancers[0].DNSName' --output text
+
+Test application:
+  curl http://[ALB_DNS]/api/health
+
+
+================================================================================
+📞 SUPPORT
+================================================================================
+
+Documentation Files:
+  - APP_DEPLOYMENT_INPUTS.md (detailed explanations)
+  - DEPLOYMENT_CHECKLIST.md (complete checklist with commands)
+  - INFRASTRUCTURE_GUIDE.md (infrastructure details)
+  - This file (QUICK_START_INPUTS.txt)
+
+All files in: /Users/sankarapple/export/DevOps/AWS-DevOps/Kubernetes/ecs-cluster/
+
+GitLab Repository:
+  devops8004932/kubernetes/ecs-cluster
+
+
+================================================================================
+✅ STATUS: READY FOR INPUT
+================================================================================
+
+Infrastructure: ✅ Deployed
+Documentation: ✅ Complete
+Variables: 🔄 Ready for Input
+
+Next Action: Set 20+ GitLab variables and push code
+
+
+================================================================================
