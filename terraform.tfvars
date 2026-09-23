@@ -10,6 +10,7 @@ ecs_min_capacity          = 1
 ecs_desired_capacity      = 1
 ecs_max_capacity          = 2
 log_retention_days        = 3
+backup_retention_days     = 1
 enable_container_insights = false
 enable_private_subnets    = true
 enable_nat_gateway        = false

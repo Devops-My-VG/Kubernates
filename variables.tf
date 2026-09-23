@@ -195,7 +195,7 @@ variable "database_port" {
 variable "backup_retention_days" {
   description = "Number of days to retain database backups"
   type        = number
-  default     = 7
+  default     = 1
 
   validation {
     condition     = var.backup_retention_days >= 1 && var.backup_retention_days <= 35

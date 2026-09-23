@@ -20,7 +20,8 @@ enable_private_subnets    = true
 enable_nat_gateway        = true
 
 # RDS Configuration
-postgres_version = "15.7"
+postgres_version      = "15.7"
+backup_retention_days = 1
 
 # Valkey Serverless Configuration (INT Environment)
 # Cost Estimate: ~$0.08-0.10/hr (~$60-70/month)

@@ -39,7 +39,7 @@ resource "aws_db_instance" "ecommerce" {
 
   # Multi-AZ and backup configuration
   multi_az                = false
-  backup_retention_period = 7
+  backup_retention_period = var.backup_retention_days
   backup_window           = "03:00-04:00"
   maintenance_window      = "mon:04:00-mon:05:00"
   copy_tags_to_snapshot   = true
