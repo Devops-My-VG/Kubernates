@@ -95,7 +95,6 @@ jobs:
             tfplan.int
             plan_output_int.txt
             .terraform.lock.hcl
-        retention-days: 7
 
   apply:
     name: Apply INT Environment
@@ -156,7 +155,6 @@ jobs:
         with:
           name: int-outputs
           path: int_outputs.json
-        retention-days: 30
 
   export-artifacts:
     name: Export Infrastructure Artifacts
@@ -373,7 +371,6 @@ jobs:
             infra-config.env
             infra-config.yaml
             infra-manifest.json
-        retention-days: 30
 
   destroy:
     name: Destroy INT Environment
