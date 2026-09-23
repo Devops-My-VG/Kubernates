@@ -46,7 +46,7 @@ before_script:
   - unzip -q terraform.zip && rm -f terraform.zip && chmod +x terraform
   - ./terraform version
   - echo "Initializing Terraform with S3 backend..."
-  - ./terraform init -backend-config="backend-config="bucket=devops-ecs-cluster-071023092026" -backend-config="key=ecs-cluster/terraform.tfstate" -backend-config="region=${AWS_DEFAULT_REGION}" -backend-config="encrypt=true" -backend-config="skip_credentials_validation=false" -backend-config="skip_metadata_api_check=false"
+  - ./terraform init -backend-config="bucket=devops-ecs-cluster-071023092026" -backend-config="key=ecs-cluster/terraform.tfstate" -backend-config="region=${AWS_DEFAULT_REGION}" -backend-config="encrypt=true" -backend-config="skip_credentials_validation=false" -backend-config="skip_metadata_api_check=false"
 
 # ============================================================================
 # VALIDATION STAGE - Syntax and format checks
@@ -152,7 +152,7 @@ export-artifacts:int:
     - apt-get update -qq && apt-get install -y -qq curl unzip ca-certificates jq
     - curl -fsSLo terraform.zip "https://releases.hashicorp.com/terraform/${TF_VERSION}/terraform_${TF_VERSION}_linux_amd64.zip"
     - unzip -q terraform.zip && rm -f terraform.zip && chmod +x terraform
-    - ./terraform init -backend-config="bucket=bucket-s3-infra-devops" -backend-config="key=ecs-cluster/terraform.tfstate" -backend-config="region=${AWS_DEFAULT_REGION}" -backend-config="encrypt=true"
+    - ./terraform init -backend-config="bucket=devops-ecs-cluster-071023092026" -backend-config="key=ecs-cluster/terraform.tfstate" -backend-config="region=${AWS_DEFAULT_REGION}" -backend-config="encrypt=true"
   script:
     - echo "=========================================="
     - echo "Exporting Infrastructure Artifacts"
