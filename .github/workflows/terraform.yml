@@ -18,6 +18,7 @@ jobs:
   validate:
     name: Validate
     runs-on: ubuntu-latest
+    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.action == 'apply')
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -58,6 +59,7 @@ jobs:
     name: Plan INT Environment
     needs: validate
     runs-on: ubuntu-latest
+    if: github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.action == 'apply')
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
