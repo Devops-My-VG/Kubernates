@@ -95,6 +95,7 @@ jobs:
             tfplan.int
             plan_output_int.txt
             .terraform.lock.hcl
+          include-hidden-files: true
 
   apply:
     name: Apply INT Environment
@@ -143,7 +144,7 @@ jobs:
         run: |
           mv plan-artifacts/tfplan.int .
           mv plan-artifacts/plan_output_int.txt .
-          mv plan-artifacts/.terraform.lock.hcl .
+          [ -f plan-artifacts/.terraform.lock.hcl ] && mv -f plan-artifacts/.terraform.lock.hcl . || true
 
       - name: Terraform Apply
         run: |
