@@ -21,3 +21,5 @@ crash.*.log
 
 # AWS Inventory files
 aws_inventory_*
+
+**/.claude/

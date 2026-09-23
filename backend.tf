@@ -19,14 +19,14 @@
 
 terraform {
   backend "s3" {
-    bucket         = "devops-ecs-cluster-071023092026"
-    encrypt        = true
-    region         = "us-east-1"
-    
+    bucket  = "devops-ecs-cluster-071023092026"
+    encrypt = true
+    region  = "us-east-1"
+
     # Backend-specific optimizations
-    skip_credentials_validation = false  # Validate AWS credentials
-    skip_metadata_api_check     = false  # Validate IAM permissions
-    
+    skip_credentials_validation = false # Validate AWS credentials
+    skip_metadata_api_check     = false # Validate IAM permissions
+
     # Note: 'key' is provided via -backend-config CLI argument
     # This allows same configuration for all environments
     # No DynamoDB table for state locking (per user requirement - S3 only)

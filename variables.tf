@@ -239,7 +239,7 @@ variable "valkey_ecpu_per_second" {
 variable "valkey_snapshot_retention_limit" {
   description = "Number of days to retain automatic snapshots for Valkey (0-35 days)"
   type        = number
-  default     = 7
+  default     = 0
   validation {
     condition     = var.valkey_snapshot_retention_limit >= 0 && var.valkey_snapshot_retention_limit <= 35
     error_message = "Snapshot retention limit must be between 0 and 35 days."

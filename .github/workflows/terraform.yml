@@ -1,0 +1,416 @@
+name: Terraform ECS Cluster
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  validate:
+    name: Validate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.16.2
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }} # optional
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq curl unzip ca-certificates
+
+      - name: Install Terraform (exact version)
+        run: |
+          curl -fsSLo terraform.zip "https://releases.hashicorp.com/terraform/1.16.2/terraform_1.16.2_linux_amd64.zip"
+          unzip -q terraform.zip && rm -f terraform.zip && chmod +x terraform
+          sudo mv terraform /usr/local/bin/
+          terraform version
+
+      - name: Initialize Terraform
+        run: |
+          terraform init -backend-config="bucket=bucket-s3-infra-devops" -backend-config="key=ecs-cluster/terraform.tfstate" -backend-config="region=us-east-1" -backend-config="encrypt=true" -backend-config="skip_credentials_validation=false" -backend-config="skip_metadata_api_check=false"
+
+      - name: Validate Terraform
+        run: |
+          terraform validate
+
+  plan:
+    name: Plan INT Environment
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.16.2
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }} # optional
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq curl unzip ca-certificates
+
+      - name: Install Terraform (exact version)
+        run: |
+          curl -fsSLo terraform.zip "https://releases.hashicorp.com/terraform/1.16.2/terraform_1.16.2_linux_amd64.zip"
+          unzip -q terraform.zip && rm -f terraform.zip && chmod +x terraform
+          sudo mv terraform /usr/local/bin/
+          terraform version
+
+      - name: Initialize Terraform
+        run: |
+          terraform init -backend-config="bucket=bucket-s3-infra-devops" -backend-config="key=ecs-cluster/terraform.tfstate" -backend-config="region=us-east-1" -backend-config="encrypt=true" -backend-config="skip_credentials_validation=false" -backend-config="skip_metadata_api_check=false"
+
+      - name: Terraform Plan
+        id: plan
+        run: |
+          terraform plan -var-file="environments/int.tfvars" -out=tfplan.int
+          terraform show -no-color tfplan.int > plan_output_int.txt
+
+      - name: Upload Plan Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfplan-int
+          path: |
+            tfplan.int
+            plan_output_int.txt
+            .terraform.lock.hcl
+        retention-days: 7
+
+  apply:
+    name: Apply INT Environment
+    needs: plan
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.16.2
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }} # optional
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq curl unzip ca-certificates
+
+      - name: Install Terraform (exact version)
+        run: |
+          curl -fsSLo terraform.zip "https://releases.hashicorp.com/terraform/1.16.2/terraform_1.16.2_linux_amd64.zip"
+          unzip -q terraform.zip && rm -f terraform.zip && chmod +x terraform
+          sudo mv terraform /usr/local/bin/
+          terraform version
+
+      - name: Initialize Terraform
+        run: |
+          terraform init -backend-config="bucket=bucket-s3-infra-devops" -backend-config="key=ecs-cluster/terraform.tfstate" -backend-config="region=us-east-1" -backend-config="encrypt=true" -backend-config="skip_credentials_validation=false" -backend-config="skip_metadata_api_check=false"
+
+      - name: Download Plan Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: tfplan-int
+          path: ./plan-artifacts
+
+      - name: Move Plan File
+        run: |
+          mv plan-artifacts/tfplan.int .
+          mv plan-artifacts/plan_output_int.txt .
+          mv plan-artifacts/.terraform.lock.hcl .
+
+      - name: Terraform Apply
+        run: |
+          terraform apply -auto-approve tfplan.int
+          terraform output -json > int_outputs.json
+
+      - name: Upload Apply Outputs
+        uses: actions/upload-artifact@v4
+        with:
+          name: int-outputs
+          path: int_outputs.json
+        retention-days: 30
+
+  export-artifacts:
+    name: Export Infrastructure Artifacts
+    needs: apply
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.16.2
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }} # optional
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq curl unzip ca-certificates jq
+
+      - name: Install Terraform (exact version)
+        run: |
+          curl -fsSLo terraform.zip "https://releases.hashicorp.com/terraform/1.16.2/terraform_1.16.2_linux_amd64.zip"
+          unzip -q terraform.zip && rm -f terraform.zip && chmod +x terraform
+          sudo mv terraform /usr/local/bin/
+          terraform version
+
+      - name: Initialize Terraform
+        run: |
+          terraform init -backend-config="bucket=bucket-s3-infra-devops" -backend-config="key=ecs-cluster/terraform.tfstate" -backend-config="region=us-east-1" -backend-config="encrypt=true" -backend-config="skip_credentials_validation=false" -backend-config="skip_metadata_api_check=false"
+
+      - name: Download Apply Outputs
+        uses: actions/download-artifact@v4
+        with:
+          name: int-outputs
+          path: ./apply-outputs
+
+      - name: Move Outputs
+        run: |
+          mv apply-outputs/int_outputs.json terraform-outputs.json
+
+      - name: Export Infrastructure Artifacts
+        run: |
+          echo "=========================================="
+          echo "Exporting Infrastructure Artifacts"
+          echo "=========================================="
+          echo ""
+
+          # Step 1: Export Terraform outputs as JSON
+          echo "[1/5] Exporting Terraform outputs..."
+          terraform output -json > terraform-outputs.json
+          echo "✓ terraform-outputs.json created"
+
+          OUTPUT_COUNT=$(jq 'keys | length' terraform-outputs.json)
+          echo "Found $OUTPUT_COUNT Terraform outputs"
+          if [ "$OUTPUT_COUNT" -eq 0 ]; then
+            echo "⚠️  WARNING: No Terraform outputs found. Infrastructure may not be fully deployed."
+            echo "Available outputs:"
+            terraform output || echo "No outputs available"
+          fi
+
+          # Step 2: Create environment variables file (.env format)
+          echo "[2/5] Creating environment variables file..."
+          cat > infra-config.env << 'ENVEOF'
+          # ECS Cluster Infrastructure Configuration
+          # Generated: $(date)
+          # Environment: INT
+          # Cluster: ecs-cluster-int
+
+          # Network Configuration
+          export VPC_ID=$(jq -r '.vpc_id.value // empty' terraform-outputs.json)
+          export PUBLIC_SUBNETS=$(jq -r '.public_subnets.value | join(",") // empty' terraform-outputs.json)
+          export SECURITY_GROUP_ID=$(jq -r '.security_group_id.value // empty' terraform-outputs.json)
+
+          # ECS Cluster
+          export ECS_CLUSTER_NAME=$(jq -r '.cluster_name.value // empty' terraform-outputs.json)
+          export ECS_CLUSTER_ARN=$(jq -r '.cluster_arn.value // empty' terraform-outputs.json)
+          export CLOUDWATCH_LOG_GROUP=$(jq -r '.cloudwatch_log_group_name.value // empty' terraform-outputs.json)
+
+          # RDS PostgreSQL Database
+          export RDS_HOST=$(jq -r '.rds_host.value // empty' terraform-outputs.json)
+          export RDS_PORT=$(jq -r '.rds_port.value // empty' terraform-outputs.json)
+          export RDS_DATABASE_NAME=$(jq -r '.rds_database_name.value // empty' terraform-outputs.json)
+          export RDS_USERNAME=$(jq -r '.rds_username.value // empty' terraform-outputs.json)
+
+          # Valkey Serverless Cache
+          export VALKEY_HOST=$(jq -r '.valkey_host.value // empty' terraform-outputs.json)
+          export VALKEY_PORT=$(jq -r '.valkey_port.value // empty' terraform-outputs.json)
+
+          # ECR Container Registry
+          export ECR_REGISTRY=$(jq -r '.ecr_registry_id.value // empty' terraform-outputs.json)
+          export BACKEND_ECR_REPOSITORY=$(jq -r '.backend_ecr_repository_name.value // empty' terraform-outputs.json)
+          export FRONTEND_ECR_REPOSITORY=$(jq -r '.frontend_ecr_repository_name.value // empty' terraform-outputs.json)
+          export BACKEND_ECR_REPOSITORY_URL=$(jq -r '.backend_ecr_repository_url.value // empty' terraform-outputs.json)
+          export FRONTEND_ECR_REPOSITORY_URL=$(jq -r '.frontend_ecr_repository_url.value // empty' terraform-outputs.json)
+
+          # IAM Roles
+          export ECS_TASK_EXECUTION_ROLE_ARN=$(jq -r '.ecs_task_execution_role_arn.value // empty' terraform-outputs.json)
+          export ECS_TASK_ROLE_ARN=$(jq -r '.ecs_task_role_arn.value // empty' terraform-outputs.json)
+          ENVEOF
+          sed -i "s|\$(date)|$(date)|g" infra-config.env
+          bash -c "source infra-config.env && ENV_COUNT=\$(env | grep -c '^VPC_ID=\|^ECS_CLUSTER=\|^RDS_=\|^VALKEY_=\|^ECR_=\|^.*ROLE_ARN=' || echo '0') && echo '✓ infra-config.env created with '\$ENV_COUNT' variables'"
+          echo "✓ Environment variables file created"
+
+          # Step 3: Create YAML configuration
+          echo "[3/5] Creating YAML configuration..."
+          cat > infra-config.yaml << 'YAMLEOF'
+          # ECS Cluster Infrastructure Configuration (YAML)
+          infrastructure:
+            cluster_name: ecs-cluster-int
+            environment: INT
+            region: us-east-1
+
+          network:
+            vpc_id: $(jq -r '.vpc_id.value // empty' terraform-outputs.json)
+            public_subnets: $(jq -r '.public_subnets.value | join(", ") // empty' terraform-outputs.json)
+            security_group_id: $(jq -r '.security_group_id.value // empty' terraform-outputs.json)
+
+          ecs:
+            cluster_name: $(jq -r '.cluster_name.value // empty' terraform-outputs.json)
+            cluster_arn: $(jq -r '.cluster_arn.value // empty' terraform-outputs.json)
+            cloudwatch_log_group: $(jq -r '.cloudwatch_log_group_name.value // empty' terraform-outputs.json)
+
+          database:
+            type: PostgreSQL
+            host: $(jq -r '.rds_host.value // empty' terraform-outputs.json)
+            port: $(jq -r '.rds_port.value // empty' terraform-outputs.json)
+            database_name: $(jq -r '.rds_database_name.value // empty' terraform-outputs.json)
+            username: $(jq -r '.rds_username.value // empty' terraform-outputs.json)
+
+          cache:
+            type: Valkey Serverless
+            host: $(jq -r '.valkey_host.value // empty' terraform-outputs.json)
+            port: $(jq -r '.valkey_port.value // empty' terraform-outputs.json)
+
+          registry:
+            registry_id: $(jq -r '.ecr_registry_id.value // empty' terraform-outputs.json)
+            backend_repository: $(jq -r '.backend_ecr_repository_name.value // empty' terraform-outputs.json)
+            backend_repository_url: $(jq -r '.backend_ecr_repository_url.value // empty' terraform-outputs.json)
+            frontend_repository: $(jq -r '.frontend_ecr_repository_name.value // empty' terraform-outputs.json)
+            frontend_repository_url: $(jq -r '.frontend_ecr_repository_url.value // empty' terraform-outputs.json)
+
+          iam:
+            task_execution_role_arn: $(jq -r '.ecs_task_execution_role_arn.value // empty' terraform-outputs.json)
+            task_role_arn: $(jq -r '.ecs_task_role_arn.value // empty' terraform-outputs.json)
+          YAMLEOF
+          sed -i "s|\$(jq -r|jq -r|g" infra-config.yaml
+          echo "✓ infra-config.yaml created"
+
+          # Step 4: Create infrastructure manifest
+          echo "[4/5] Creating infrastructure manifest..."
+          cat > infra-manifest.json << 'MANIFESTEOF'
+          {
+            "version": "1.0",
+            "generated_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+            "pipeline_id": "${GITHUB_RUN_ID}",
+            "commit_sha": "${GITHUB_SHA}",
+            "commit_message": "${GITHUB_EVENT_NAME}",
+            "environment": "INT",
+            "cluster_name": "ecs-cluster-int",
+            "region": "us-east-1",
+            "terraform_version": "1.16.2",
+            "artifacts": {
+              "terraform_outputs": "terraform-outputs.json",
+              "env_config": "infra-config.env",
+              "yaml_config": "infra-config.yaml",
+              "manifest": "infra-manifest.json"
+            },
+            "expiry": "$(date -u -d '+30 days' +%Y-%m-%dT%H:%M:%SZ)"
+          }
+          MANIFESTEOF
+          # Replace placeholders
+          sed -i "s|\${GITHUB_RUN_ID}|${GITHUB_RUN_ID}|g" infra-manifest.json
+          sed -i "s|\${GITHUB_SHA}|${GITHUB_SHA}|g" infra-manifest.json
+          # For commit message, we need to escape quotes and newlines
+          COMMIT_MESSAGE_ESCAPED=$(echo "$GITHUB_EVENT_NAME" | sed 's/"/\\"/g' | sed 's/$/\\n/' | tr -d '\n')
+          sed -i "s|\${GITHUB_EVENT_NAME}|$COMMIT_MESSAGE_ESCAPED|g" infra-manifest.json
+          sed -i "s|\$(date -u +%Y-%m-%dT%H:%M:%SZ)|$(date -u +%Y-%m-%dT%H:%M:%SZ)|g" infra-manifest.json
+          sed -i "s|\$(date -u -d '+30 days' +%Y-%m-%dT%H:%M:%SZ)|$(date -u -d '+30 days' +%Y-%m-%dT%H:%M:%SZ)|g" infra-manifest.json
+          echo "✓ infra-manifest.json created"
+
+          # Step 5: Verify and summary
+          echo "[5/5] Verifying artifacts..."
+          echo ""
+          echo "=========================================="
+          echo "Artifact Export Summary"
+          echo "=========================================="
+          echo ""
+          echo "Files created:"
+          ls -lh terraform-outputs.json infra-config.env infra-config.yaml infra-manifest.json
+          echo ""
+          echo "Configuration values:"
+          echo "  VPC ID: $(jq -r '.vpc_id.value' terraform-outputs.json)"
+          echo "  Cluster: $(jq -r '.cluster_name.value' terraform-outputs.json)"
+          echo "  RDS Host: $(jq -r '.rds_host.value' terraform-outputs.json)"
+          echo "  Valkey Host: $(jq -r '.valkey_host.value' terraform-outputs.json)"
+          echo "  ECR Registry: $(jq -r '.ecr_registry_id.value' terraform-outputs.json)"
+          echo ""
+          echo "✅ All artifacts exported successfully!"
+          echo ""
+
+      - name: Upload Exported Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: infra-artifacts
+          path: |
+            terraform-outputs.json
+            infra-config.env
+            infra-config.yaml
+            infra-manifest.json
+        retention-days: 30
+
+  destroy:
+    name: Destroy INT Environment
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.16.2
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }} # optional
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq curl unzip ca-certificates
+
+      - name: Install Terraform (exact version)
+        run: |
+          curl -fsSLo terraform.zip "https://releases.hashicorp.com/terraform/1.16.2/terraform_1.16.2_linux_amd64.zip"
+          unzip -q terraform.zip && rm -f terraform.zip && chmod +x terraform
+          sudo mv terraform /usr/local/bin/
+          terraform version
+
+      - name: Initialize Terraform
+        run: |
+          terraform init -backend-config="bucket=bucket-s3-infra-devops" -backend-config="key=ecs-cluster/terraform.tfstate" -backend-config="region=us-east-1" -backend-config="encrypt=true" -backend-config="skip_credentials_validation=false" -backend-config="skip_metadata_api_check=false"
+
+      - name: Terraform Destroy
+        run: |
+          terraform destroy -auto-approve -var-file="environments/int.tfvars"

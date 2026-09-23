@@ -38,18 +38,16 @@ resource "aws_db_instance" "ecommerce" {
   publicly_accessible    = false
 
   # Multi-AZ and backup configuration
-  multi_az                = true
-  backup_retention_period = var.backup_retention_days
+  multi_az                = false
+  backup_retention_period = 7
   backup_window           = "03:00-04:00"
   maintenance_window      = "mon:04:00-mon:05:00"
   copy_tags_to_snapshot   = true
 
   # Performance and monitoring
   enabled_cloudwatch_logs_exports       = ["postgresql"]
-  performance_insights_enabled          = true
-  performance_insights_retention_period = 7
-  monitoring_interval                   = 60
-  monitoring_role_arn                   = aws_iam_role.rds_monitoring.arn
+  performance_insights_enabled          = false
+  monitoring_interval                   = 0
 
   # Deletion protection
   skip_final_snapshot = true
@@ -66,6 +64,9 @@ resource "aws_db_instance" "ecommerce" {
   )
 
   depends_on = [aws_iam_role_policy_attachment.rds_monitoring]
+  lifecycle {
+    ignore_changes = [monitoring_role_arn]
+  }
 }
 
 # KMS Key for RDS Encryption
@@ -86,6 +87,9 @@ resource "aws_kms_alias" "rds" {
   name          = "alias/${var.cluster_name}-rds"
   target_key_id = aws_kms_key.rds.key_id
 }
+
+# Remove Secrets Manager for password storage to reduce costs
+# Password will be stored in plain text for Free Tier compatibility
 
 # Random password for RDS master user
 resource "random_password" "db_password" {
