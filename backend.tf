@@ -6,7 +6,7 @@
 # Multi-Environment: Supported via -backend-config key argument
 #
 # Usage:
-#   terraform init -backend-config="bucket=bucket-s3-infra-devops" \
+#   terraform init -backend-config="bdevops-ecs-cluster-071023092026" \
 #                  -backend-config="key=ecs-cluster/int/terraform.tfstate" \
 #                  -backend-config="region=us-east-1"
 #
@@ -19,7 +19,7 @@
 
 terraform {
   backend "s3" {
-    bucket         = "bucket-s3-infra-devops"
+    bucket         = "devops-ecs-cluster-071023092026"
     encrypt        = true
     region         = "us-east-1"
     
