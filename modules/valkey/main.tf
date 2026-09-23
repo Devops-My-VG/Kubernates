@@ -62,7 +62,7 @@ resource "random_password" "valkey_auth_token" {
 resource "aws_secretsmanager_secret" "valkey_auth_token" {
   name                    = "${var.cluster_name}/valkey/auth-token"
   description             = "Auth token for Valkey Serverless cache"
-  recovery_window_in_days = 7
+  recovery_window_in_days = 0
 
   tags = {
     Name        = "${var.cluster_name}-valkey-auth-token"

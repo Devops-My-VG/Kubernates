@@ -103,7 +103,7 @@ resource "random_password" "db_password" {
 # Store password in Secrets Manager
 resource "aws_secretsmanager_secret" "db_password" {
   name                    = "${var.cluster_name}/rds/master-password"
-  recovery_window_in_days = 7
+  recovery_window_in_days = 0
 
   tags = merge(
     var.tags,
